@@ -7,7 +7,7 @@ interface MasterOutputProps {
     waves: Wave[];
 }
 
-type ViewMode = 'time' | 'lissajous' | 'chladni' | 'fluid';
+type ViewMode = 'time' | 'lissajous' | 'chladni' | 'fluid' | 'water';
 
 interface ViewState {
     zoom: number;
@@ -30,7 +30,8 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         time: { zoom: 1, pan: { x: 0, y: 0 } },
         lissajous: { zoom: 1, pan: { x: 0, y: 0 } },
         chladni: { zoom: 1, pan: { x: 0, y: 0 } },
-        fluid: { zoom: 1, pan: { x: 0, y: 0 } }
+        fluid: { zoom: 1, pan: { x: 0, y: 0 } },
+        water: { zoom: 1, pan: { x: 0, y: 0 } }
     });
 
     // Derived values for current view
@@ -47,7 +48,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         if (!container) return;
 
         const handleWheelNative = (e: WheelEvent) => {
-            if (viewMode === 'chladni' || viewMode === 'fluid') {
+            if (viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') {
                 e.preventDefault();
                 const delta = -e.deltaY * 0.001;
                 
@@ -83,7 +84,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         const time = simTimeRef.current;
 
         // Clear canvas
-        if (viewMode !== 'chladni') {
+        if (viewMode !== 'chladni' && viewMode !== 'water') {
              // For fluid mode, we might want a darker clear or gradient
             ctx.fillStyle = viewMode === 'fluid' ? '#0b0f19' : '#00000000'; // Dark bg for fluid, transparent for others
             ctx.fillRect(0, 0, width, height);
@@ -248,6 +249,128 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             ctx.putImageData(imgData, 0, 0);
         }
 
+        // --- WATER RIPPLE DOMAIN ---
+        else if (viewMode === 'water') {
+            const imgData = ctx.createImageData(width, height);
+            const data = imgData.data;
+
+            const poolRadius = (Math.min(width, height) / 2) * 0.85 * zoom;
+            const centerX = cx + pan.x;
+            const centerY = cy + pan.y;
+
+            // Pre-calculate wave properties
+            const waveParams = activeWaves.map(w => ({
+                amp: w.amp,
+                // Wave number k (spatial frequency)
+                k: w.freq * 0.5, 
+                // Speed needs to be proportional to freq for non-dispersive appearance, 
+                // or just constant for water look. Let's use constant speed assumption for simplicity:
+                // phase = k*r - w*t. 
+                speedFactor: w.freq * 8, 
+                phaseOffset: (w.phase * Math.PI) / 180
+            }));
+
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    const idx = (y * width + x) * 4;
+
+                    if (dist > poolRadius) {
+                        // Outside pool - simple dark background
+                        data[idx] = 17; data[idx+1] = 24; data[idx+2] = 39; data[idx+3] = 255;
+                        continue;
+                    }
+
+                    const rNorm = dist / poolRadius; // 0 to 1 inside pool
+                    
+                    let h = 0;
+                    let gradX = 0;
+                    let gradY = 0;
+
+                    for (const w of waveParams) {
+                        // 1. Outward Wave: sin(k*r - w*t)
+                        // Note: dist here is in pixels, we scale k relative to pool size for aesthetics
+                        // Let's use normalized radius for calculation to make "frequency" relative to pool size
+                        const rVal = rNorm * 20; // 20 units across radius
+                        
+                        // Outward Phase
+                        const argOut = (w.k * rVal) - (time * w.speedFactor) + w.phaseOffset;
+                        const wOut = Math.sin(argOut);
+
+                        // 2. Inward (Reflected) Wave: 
+                        // Travels distance 2R (center->edge->center). At 'r', it has traveled R + (R-r) = 2R - r.
+                        // We subtract amplitude to simulate hard boundary reflection (180 deg phase shift)
+                        const rRefl = (2 - rNorm) * 20; 
+                        const argIn = (w.k * rRefl) - (time * w.speedFactor) + w.phaseOffset;
+                        const wIn = Math.sin(argIn);
+
+                        // Combine with damping on reflection
+                        const damping = 0.7;
+                        const waveH = w.amp * (wOut - (wIn * damping));
+                        h += waveH;
+
+                        // Calculate gradient (derivative) for lighting
+                        // d(sin(u))/dx = cos(u) * du/dx.  du/dr = k. dr/dx = x/r.
+                        // dH/dr
+                        const dOut = w.k * Math.cos(argOut);
+                        const dIn = w.k * Math.cos(argIn) * -1 * damping; // chain rule (2-r) -> -1
+                        
+                        const dHdr = w.amp * (dOut - dIn);
+                        
+                        // Avoid division by zero at center
+                        const safeDist = dist < 1 ? 1 : dist;
+                        gradX += dHdr * (dx / safeDist);
+                        gradY += dHdr * (dy / safeDist);
+                    }
+
+                    // Revised Lighting Model for clarity
+                    const slopeScale = 0.02; // Lowered to reduce noise/shimmer
+                    const sx = gradX * slopeScale;
+                    const sy = gradY * slopeScale;
+                    
+                    // Light direction (top-left)
+                    const lx = -0.6;
+                    const ly = -0.6;
+                    
+                    // Diffuse component (Fake N dot L)
+                    // Measures how much the wave slope faces the light source
+                    const diffuse = (sx * lx + sy * ly);
+                    
+                    // Base shading from height (crests lighter, troughs darker)
+                    const heightShade = h * 1.2;
+
+                    // Specular Highlight
+                    // Sharper exponent (16) reduces widespread shimmer, keeps it to peaks
+                    const specular = Math.pow(Math.max(0, diffuse - 0.2), 16) * 60;
+                    
+                    // Light intensity mixing
+                    const lightIntensity = (diffuse * 60);
+
+                    // Color Composition
+                    // R: Mostly specular highlight + faint height tint
+                    data[idx]   = Math.max(0, Math.min(255, 0 + specular + heightShade * 0.5));
+                    // G: Teal/Green tint
+                    data[idx+1] = Math.max(0, Math.min(255, 50 + lightIntensity + specular + heightShade));
+                    // B: Strong Blue base
+                    data[idx+2] = Math.max(0, Math.min(255, 110 + lightIntensity + specular + heightShade));
+                    data[idx+3] = 255;
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+
+            // Draw vector border
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, poolRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = '#60a5fa'; // Blue-400
+            ctx.lineWidth = 4;
+            ctx.stroke();
+            ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+
         // --- NON-NEWTONIAN FLUID (3D MESH) ---
         else if (viewMode === 'fluid') {
             // 3D Projection Parameters
@@ -410,6 +533,8 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
              setStatus({ text: `Rigid Plate Mode (Zoom: ${zoom.toFixed(1)}x)`, type: 'normal' });
         } else if (viewMode === 'fluid') {
              setStatus({ text: 'Non-Newtonian Simulation (3D)', type: 'normal' });
+        } else if (viewMode === 'water') {
+             setStatus({ text: 'Wave Tank (Boundary Reflections)', type: 'normal' });
         } else {
              setStatus({ text: 'Composite Wave', type: 'normal' });
         }
@@ -424,13 +549,13 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
     // Interaction Handlers (Mouse Drag only)
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (viewMode !== 'chladni' && viewMode !== 'fluid') return;
+        if (viewMode !== 'chladni' && viewMode !== 'fluid' && viewMode !== 'water') return;
         setIsDragging(true);
         lastPos.current = { x: e.clientX, y: e.clientY };
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging || (viewMode !== 'chladni' && viewMode !== 'fluid')) return;
+        if (!isDragging || (viewMode !== 'chladni' && viewMode !== 'fluid' && viewMode !== 'water')) return;
         const dx = e.clientX - lastPos.current.x;
         const dy = e.clientY - lastPos.current.y;
         lastPos.current = { x: e.clientX, y: e.clientY };
@@ -456,7 +581,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             <div className="flex flex-col md:flex-row justify-between items-center mb-3 gap-3">
                 <div className="flex items-center gap-3 w-full md:w-auto">
                     <h2 className="text-white font-semibold text-sm tracking-wide hidden sm:block">
-                        {viewMode === 'time' ? 'Time Domain' : viewMode === 'lissajous' ? 'Lissajous (XY)' : viewMode === 'chladni' ? 'Cymatics (2D)' : 'Oobleck (3D)'}
+                        {viewMode === 'time' ? 'Time Domain' : viewMode === 'lissajous' ? 'Lissajous (XY)' : viewMode === 'chladni' ? 'Cymatics (2D)' : viewMode === 'water' ? 'Water' : 'Oobleck (3D)'}
                     </h2>
                     <div className="flex bg-gray-800 rounded-lg p-0.5 w-full sm:w-auto justify-center overflow-x-auto no-scrollbar">
                         <button 
@@ -476,6 +601,12 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                             className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all whitespace-nowrap ${viewMode === 'chladni' ? 'bg-amber-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                         >
                             Plate
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('water')}
+                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all whitespace-nowrap ${viewMode === 'water' ? 'bg-blue-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Water
                         </button>
                         <button 
                             onClick={() => setViewMode('fluid')}
@@ -537,14 +668,14 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
-                style={{ cursor: (viewMode === 'chladni' || viewMode === 'fluid') ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                style={{ cursor: (viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
             >
                 <canvas ref={canvasRef} className="w-full h-full block" />
                 {viewMode === 'time' && (
                     <div className="absolute top-1/2 left-0 w-full h-px bg-white opacity-10 pointer-events-none"></div>
                 )}
             </div>
-            {(viewMode === 'chladni' || viewMode === 'fluid') && (
+            {(viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') && (
                 <div className="mt-2 text-[10px] text-gray-500 flex justify-between px-1">
                     <span className="flex items-center gap-2">
                         {viewMode === 'chladni' ? (
@@ -558,6 +689,10 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                                     <span>Loud</span>
                                 </span>
                             </>
+                        ) : viewMode === 'water' ? (
+                            <span className="italic text-blue-400/70">
+                                2D Ripple Tank
+                            </span>
                         ) : (
                             <span className="italic text-cyan-600/70">
                                 3D Simulation
