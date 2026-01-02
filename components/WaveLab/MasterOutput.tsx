@@ -7,7 +7,7 @@ interface MasterOutputProps {
     waves: Wave[];
 }
 
-type ViewMode = 'time' | 'lissajous' | 'chladni';
+type ViewMode = 'time' | 'lissajous' | 'chladni' | 'fluid';
 
 export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('time');
@@ -16,16 +16,16 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         text: 'Initializing...', type: 'normal'
     });
 
-    // Chladni View Controls
+    // View Controls
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const lastPos = useRef({ x: 0, y: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Reset controls when switching to Chladni
+    // Reset controls when switching modes
     useEffect(() => {
-        if (viewMode === 'chladni') {
+        if (viewMode === 'chladni' || viewMode === 'fluid') {
             setZoom(1);
             setPan({ x: 0, y: 0 });
         }
@@ -37,7 +37,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         if (!container) return;
 
         const handleWheelNative = (e: WheelEvent) => {
-            if (viewMode === 'chladni') {
+            if (viewMode === 'chladni' || viewMode === 'fluid') {
                 e.preventDefault();
                 const delta = -e.deltaY * 0.001;
                 setZoom(z => Math.max(0.1, Math.min(10, z * (1 + delta))));
@@ -56,14 +56,17 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     const isActive = (w: Wave) => !w.muted && w.amp > 0;
 
     const canvasRef = useCanvasAnimation((ctx, time, width, height) => {
-        // Clear logic depends on mode
-        if (viewMode !== 'chladni') {
-            ctx.clearRect(0, 0, width, height);
-        }
-
         const cx = width / 2;
         const cy = height / 2;
         const activeWaves = waves.filter(isActive);
+
+        // Clear canvas
+        if (viewMode !== 'chladni') {
+             // For fluid mode, we might want a darker clear or gradient
+            ctx.fillStyle = viewMode === 'fluid' ? '#0b0f19' : '#00000000'; // Dark bg for fluid, transparent for others
+            ctx.fillRect(0, 0, width, height);
+            if (viewMode !== 'fluid') ctx.clearRect(0, 0, width, height);
+        }
 
         // --- TIME DOMAIN ---
         if (viewMode === 'time') {
@@ -137,22 +140,18 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             const xWave = activeWaves[0];
             const yWaves = activeWaves.slice(1);
 
-            // Scale to fit
             const margin = 40;
             const radius = (Math.min(width, height) / 2) - margin;
 
-            // We draw a trail over time
             const segments = 500;
             const history = 2.0; 
 
             for (let i = 0; i < segments; i++) {
                 const t = time - (history * (1 - (i/segments)));
                 
-                // X Calculation
                 const xPhase = (xWave.phase * Math.PI) / 180;
                 const xVal = Math.sin(2 * Math.PI * xWave.freq * t + xPhase);
                 
-                // Y Calculation
                 let yVal = 0;
                 if (yWaves.length > 0) {
                     let yMaxAmp = yWaves.reduce((s, w) => s + w.amp, 0);
@@ -179,23 +178,18 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
         // --- CHLADNI / CYMATICS DOMAIN ---
         else if (viewMode === 'chladni') {
-            // Pixel manipulation for 2D field
             const imgData = ctx.createImageData(width, height);
             const data = imgData.data;
             
-            // Normalize assuming max interference of 2 (cos + cos)
             let totalAmp = activeWaves.reduce((sum, w) => sum + w.amp, 0) * 2;
             totalAmp = totalAmp === 0 ? 1 : totalAmp;
 
-            // Scale logic for zoom/pan
             const baseScale = height / 2;
             const currentScale = baseScale * zoom;
 
-            // Optimization: Pre-calculate wave constants
             const waveParams = activeWaves.map(w => ({
                 amp: w.amp,
                 spatialFreq: w.freq * 2.0 * Math.PI,
-                // The temporal speed factor (Phasor rotation)
                 angleBase: (w.phase * Math.PI / 180) - (time * w.freq * 5)
             }));
 
@@ -210,33 +204,19 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
                     for (let i = 0; i < waveParams.length; i++) {
                         const w = waveParams[i];
-                        
-                        // PHYSICS UPDATE: Rigid Plate Model
-                        // 1. Use Cosine (Free Edge boundary) instead of Sine (Fixed Edge)
-                        // 2. Use Addition (Superposition) instead of Multiplication.
-                        //    Multiplication simulates a constrained grid.
-                        //    Addition simulates two orthogonal waves passing through the substrate.
-                        //    This allows for diagonal nodal lines and "X" patterns typical of Chladni plates.
                         const spatialVal = Math.cos(w.spatialFreq * nx) + Math.cos(w.spatialFreq * ny);
-                        
-                        // Add to phasor sum
                         reSum += w.amp * spatialVal * Math.cos(w.angleBase);
                         imSum += w.amp * spatialVal * Math.sin(w.angleBase);
                     }
 
-                    // Magnitude of the complex envelope (RMS)
-                    // This creates the visual pattern of the standing wave average over time
                     const magnitude = Math.sqrt(reSum * reSum + imSum * imSum);
                     const normalizedAmp = magnitude / totalAmp;
                     
-                    // Smooth visualization
-                    // Contrast curve to define sharp nodal lines
                     const val = Math.min(1, normalizedAmp);
-                    const intensity = Math.pow(val, 1.5); // Slightly steeper curve for sharper lines
+                    const intensity = Math.pow(val, 1.5);
 
                     const index = (y * width + x) * 4;
                     
-                    // Color Palette: Deep Blue (Node) -> White/Gold (Antinode)
                     data[index]     = 10 + (245 * intensity);
                     data[index + 1] = 12 + (208 * intensity);
                     data[index + 2] = 20 + (130 * intensity);
@@ -244,6 +224,139 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                 }
             }
             ctx.putImageData(imgData, 0, 0);
+        }
+
+        // --- NON-NEWTONIAN FLUID (3D MESH) ---
+        else if (viewMode === 'fluid') {
+            // 3D Projection Parameters
+            const gridSize = 40; // Resolution of the mesh
+            const gridSpacing = (width * 1.5) / gridSize; 
+            const offset = (gridSize * gridSpacing) / 2;
+            
+            // Camera Parameters for X' = X/Z formula
+            // We define camera at (0,0,0). Object is translated by cameraZ.
+            // screenScale represents the distance of the projection screen from the eye (in pixels)
+            const cameraZ = 800 / Math.max(0.1, zoom); 
+            const screenScale = 500; 
+
+            // Auto Rotation
+            const rotX = 0.8; // Tilt
+            const rotY = time * 0.2 + (pan.x * 0.005); // Spin
+
+            // Pre-calculate wave data
+            const waveParams = activeWaves.map(w => ({
+                amp: w.amp,
+                spatialFreq: (w.freq * Math.PI) / (gridSize / 2),
+                angleBase: (w.phase * Math.PI / 180) - (time * w.freq * 8)
+            }));
+
+            // Calculate Grid Points
+            const points: {x: number, y: number, z: number, depth: number}[] = [];
+
+            for (let z = 0; z < gridSize; z++) {
+                for (let x = 0; x < gridSize; x++) {
+                    // Physical Coordinates centered at 0
+                    const px = (x * gridSpacing) - offset;
+                    const pz = (z * gridSpacing) - offset;
+
+                    // Calculate Height (Interference)
+                    let h = 0;
+                    if (activeWaves.length > 0) {
+                        let reSum = 0;
+                        let imSum = 0;
+                        
+                        const nx = (x / gridSize) * 2 - 1;
+                        const nz = (z / gridSize) * 2 - 1;
+
+                        for (const w of waveParams) {
+                            const d = Math.sqrt(nx*nx + nz*nz);
+                            const spatialVal = Math.cos(w.spatialFreq * d * 5) + Math.cos(w.spatialFreq * nx * 2);
+
+                            reSum += w.amp * spatialVal * Math.cos(w.angleBase);
+                            imSum += w.amp * spatialVal * Math.sin(w.angleBase);
+                        }
+                        
+                        const mag = Math.sqrt(reSum * reSum + imSum * imSum);
+                        const threshold = 10; 
+                        if (mag > threshold) {
+                            h = -Math.pow((mag - threshold), 1.6) * 1.5;
+                        } else {
+                            h = -Math.sin(mag) * 2; 
+                        }
+                    }
+
+                    // 3D Transformation
+                    
+                    // 1. Rotation (World Space)
+                    // Rotate Y
+                    let rx = px * Math.cos(rotY) - pz * Math.sin(rotY);
+                    let rz = px * Math.sin(rotY) + pz * Math.cos(rotY);
+                    
+                    // Rotate X (Tilt)
+                    let ry = h * Math.cos(rotX) - rz * Math.sin(rotX);
+                    rz = h * Math.sin(rotX) + rz * Math.cos(rotX);
+
+                    // 2. Camera Translation
+                    // Move the object along Z axis to be in front of the camera (which is at 0,0,0)
+                    const Z = rz + cameraZ;
+
+                    // 3. Perspective Projection: X' = X / Z
+                    if (Z <= 10) continue; // Near clip plane
+
+                    const xPrime = rx / Z;
+                    const yPrime = ry / Z;
+
+                    // 4. Viewport Mapping (Screen Space)
+                    // Convert normalized projection to pixel coordinates
+                    const sx = xPrime * screenScale + cx;
+                    const sy = yPrime * screenScale + cy + (pan.y * 0.5);
+
+                    // Store depth metric for shading (proportional to 1/Z)
+                    // We scale it back up to roughly 0..1 range for the alpha math below
+                    const depthMetric = screenScale / Z;
+
+                    points.push({ x: sx, y: sy, z: rz, depth: depthMetric });
+                }
+            }
+
+            // Draw Mesh (Painter's Algorithm by loop order Z then X)
+            // We draw Quads
+            ctx.lineWidth = 1;
+            
+            for (let z = 0; z < gridSize - 1; z++) {
+                for (let x = 0; x < gridSize - 1; x++) {
+                    const i = z * gridSize + x;
+                    const p1 = points[i];
+                    const p2 = points[i + 1];
+                    const p3 = points[i + gridSize + 1];
+                    const p4 = points[i + gridSize];
+
+                    // Simple visibility check based on clip
+                    if (!p1 || !p2 || !p3 || !p4) continue;
+
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.lineTo(p3.x, p3.y);
+                    ctx.lineTo(p4.x, p4.y);
+                    ctx.closePath();
+
+                    // Fluid Color Grading
+                    const heightFactor = Math.min(1, Math.abs(p1.y - cy) / 150);
+                    
+                    // Base color logic
+                    const r = 40 + (heightFactor * 100);
+                    const g = 10 + (heightFactor * 200);
+                    const b = 60 + (heightFactor * 255);
+                    const alpha = 0.4 + (p1.depth * 0.6);
+
+                    ctx.fillStyle = `rgba(${r},${g},${b},${alpha * 0.8})`;
+                    ctx.strokeStyle = `rgba(${r+50},${g+50},${b+100},${alpha * 0.3})`;
+                    
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
         }
 
     }, [waves, viewMode, zoom, pan]);
@@ -280,6 +393,8 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
              else setStatus({ text: 'XY Phase Plot', type: 'normal' });
         } else if (viewMode === 'chladni') {
              setStatus({ text: `Rigid Plate Mode (Zoom: ${zoom.toFixed(1)}x)`, type: 'normal' });
+        } else if (viewMode === 'fluid') {
+             setStatus({ text: 'Non-Newtonian Simulation (3D)', type: 'normal' });
         } else {
              setStatus({ text: 'Composite Wave', type: 'normal' });
         }
@@ -294,13 +409,13 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
     // Interaction Handlers (Mouse Drag only)
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (viewMode !== 'chladni') return;
+        if (viewMode !== 'chladni' && viewMode !== 'fluid') return;
         setIsDragging(true);
         lastPos.current = { x: e.clientX, y: e.clientY };
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging || viewMode !== 'chladni') return;
+        if (!isDragging || (viewMode !== 'chladni' && viewMode !== 'fluid')) return;
         const dx = e.clientX - lastPos.current.x;
         const dy = e.clientY - lastPos.current.y;
         lastPos.current = { x: e.clientX, y: e.clientY };
@@ -316,26 +431,32 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             <div className="flex flex-col sm:flex-row justify-between items-center mb-3 gap-3">
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                     <h2 className="text-white font-semibold text-sm tracking-wide hidden sm:block">
-                        {viewMode === 'time' ? 'Time Domain' : viewMode === 'lissajous' ? 'Lissajous (XY)' : 'Cymatics (2D)'}
+                        {viewMode === 'time' ? 'Time Domain' : viewMode === 'lissajous' ? 'Lissajous (XY)' : viewMode === 'chladni' ? 'Cymatics (2D)' : 'Oobleck (3D)'}
                     </h2>
-                    <div className="flex bg-gray-800 rounded-lg p-0.5 w-full sm:w-auto justify-center">
+                    <div className="flex bg-gray-800 rounded-lg p-0.5 w-full sm:w-auto justify-center overflow-x-auto no-scrollbar">
                         <button 
                             onClick={() => setViewMode('time')}
-                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all ${viewMode === 'time' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all whitespace-nowrap ${viewMode === 'time' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                         >
                             Time
                         </button>
                         <button 
                             onClick={() => setViewMode('lissajous')}
-                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all ${viewMode === 'lissajous' ? 'bg-pink-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all whitespace-nowrap ${viewMode === 'lissajous' ? 'bg-pink-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                         >
                             XY
                         </button>
                         <button 
                             onClick={() => setViewMode('chladni')}
-                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all ${viewMode === 'chladni' ? 'bg-amber-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all whitespace-nowrap ${viewMode === 'chladni' ? 'bg-amber-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                         >
                             Plate
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('fluid')}
+                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all whitespace-nowrap ${viewMode === 'fluid' ? 'bg-cyan-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Fluid
                         </button>
                     </div>
                 </div>
@@ -378,24 +499,32 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
-                style={{ cursor: viewMode === 'chladni' ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                style={{ cursor: (viewMode === 'chladni' || viewMode === 'fluid') ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
             >
                 <canvas ref={canvasRef} className="w-full h-full block" />
                 {viewMode === 'time' && (
                     <div className="absolute top-1/2 left-0 w-full h-px bg-white opacity-10 pointer-events-none"></div>
                 )}
             </div>
-            {viewMode === 'chladni' && (
+            {(viewMode === 'chladni' || viewMode === 'fluid') && (
                 <div className="mt-2 text-[10px] text-gray-500 flex justify-between px-1">
                     <span className="flex items-center gap-2">
-                        <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 bg-gray-800 border border-gray-600 rounded-sm"></span>
-                            <span>Quiet (Node)</span>
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 bg-amber-200 rounded-sm"></span>
-                            <span>Loud (Antinode)</span>
-                        </span>
+                        {viewMode === 'chladni' ? (
+                            <>
+                                <span className="flex items-center gap-1">
+                                    <span className="w-2 h-2 bg-gray-800 border border-gray-600 rounded-sm"></span>
+                                    <span>Quiet</span>
+                                </span>
+                                <span className="flex items-center gap-1">
+                                    <span className="w-2 h-2 bg-amber-200 rounded-sm"></span>
+                                    <span>Loud</span>
+                                </span>
+                            </>
+                        ) : (
+                            <span className="italic text-cyan-600/70">
+                                3D Simulation
+                            </span>
+                        )}
                     </span>
                     <span className="font-medium text-amber-600">Scroll to Zoom • Drag to Pan</span>
                 </div>
