@@ -663,7 +663,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             
             <div 
                 ref={containerRef}
-                className="relative h-64 md:h-72 w-full bg-gray-950 rounded-lg overflow-hidden ring-1 ring-white/10"
+                className="relative h-[32rem] md:h-[36rem] w-full bg-gray-950 rounded-lg overflow-hidden ring-1 ring-white/10"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
