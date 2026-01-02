@@ -10,15 +10,15 @@ function App() {
   const [isPresetOpen, setIsPresetOpen] = useState(false);
   
   const [waves, setWaves] = useState<Wave[]>([
-    { id: 1, freq: 1, amp: 50, phase: 0, color: COLORS[0], muted: false },
-    { id: 2, freq: 1.5, amp: 30, phase: 45, color: COLORS[1], muted: false }
+    { id: 1, freq: 2, amp: 50, phase: 0, color: COLORS[0], muted: false },
+    { id: 2, freq: 3, amp: 30, phase: 0, color: COLORS[1], muted: false }
   ]);
 
   const addWave = (partial?: Partial<Wave>) => {
     const color = COLORS[(nextId - 1) % COLORS.length];
     setWaves(prev => [
       ...prev, 
-      { id: nextId, freq: 1, amp: 50, phase: 0, color, muted: false, ...partial }
+      { id: nextId, freq: 2, amp: 50, phase: 0, color, muted: false, ...partial }
     ]);
     setNextId(n => n + 1);
   };
@@ -70,27 +70,27 @@ function App() {
 
     switch(type) {
         case 'beats':
-            // Beat Frequency: Two waves very close in frequency
-            create(20, 50, 0);
-            create(21, 50, 0); // 1Hz beat
+            // Beat Frequency: Two waves close in frequency. 
+            // 20x multiplier -> 10*20=200Hz, 10.2*20=204Hz. Beat=4Hz (nice wah-wah).
+            create(10, 50, 0);
+            create(10.2, 50, 0); 
             break;
         case 'major':
             // Major Chord (Just Intonation): 4:5:6 ratio
-            create(4, 40, 0); // Root
-            create(5, 30, 0); // Major Third
-            create(6, 30, 0); // Perfect Fifth
+            // 20x multiplier -> 120, 150, 180Hz (Low major triad)
+            create(6, 40, 0); // Root
+            create(7.5, 30, 0); // Major Third
+            create(9, 30, 0); // Perfect Fifth
             break;
         case 'octaves':
             // Octaves: 1:2:4
-            create(3, 50, 0);
-            create(6, 30, 0);
-            create(12, 15, 0);
+            create(4, 50, 0); // 80Hz
+            create(8, 30, 0); // 160Hz
+            create(16, 15, 0); // 320Hz
             break;
         case 'standing':
             // Standing Wave: Two identical waves moving in opposite directions
-            // In our time-based sim, this is just same freq, same amp. 
-            // To see interference cancel out, we usually use phase.
-            // Let's do Destructive Interference preset
+            // Visually represented by phase opposition here for interference
             create(5, 50, 0);
             create(5, 50, 180);
             break;
@@ -172,7 +172,7 @@ function App() {
                                 <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-20 animate-fade-in">
                                     <div className="py-1">
                                         <button onClick={() => applyPreset('beats')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
-                                            Binaural Beats (20Hz/21Hz)
+                                            Binaural Beats (4Hz)
                                         </button>
                                         <button onClick={() => applyPreset('major')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700">
                                             Major Chord (4:5:6)

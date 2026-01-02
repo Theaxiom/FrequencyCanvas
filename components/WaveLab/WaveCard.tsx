@@ -102,7 +102,7 @@ export const WaveCard: React.FC<WaveCardProps> = ({ wave, onChange, onRemove, on
             <div className={`space-y-4 pl-2 transition-opacity ${wave.muted ? 'opacity-50 pointer-events-none' : ''}`}>
                 <RangeSlider 
                     label="Frequency (Hz)" 
-                    min={0.5} max={144} step={0.5}
+                    min={0.1} max={144} step={0.1}
                     value={wave.freq}
                     color={wave.color}
                     onChange={(e) => onChange(wave.id, { freq: parseFloat(e.target.value) })}

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Wave } from '../types';
 
+// Visual frequencies (1-10Hz) are too low for audio. 
+// We multiply by this factor to map them to an audible range while preserving harmonic ratios.
+const FREQ_MULTIPLIER = 20;
+
 export const useAudio = (waves: Wave[]) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioCtxRef = useRef<AudioContext | null>(null);
@@ -16,7 +20,7 @@ export const useAudio = (waves: Wave[]) => {
                 
                 // Master Gain (Volume limit)
                 const master = audioCtxRef.current.createGain();
-                master.gain.value = 0.3; // Prevent clipping
+                master.gain.value = 0.2; // Reduced volume to prevent clipping with multiple waves
                 master.connect(audioCtxRef.current.destination);
                 masterGainRef.current = master;
             }
@@ -40,14 +44,16 @@ export const useAudio = (waves: Wave[]) => {
         const now = ctx.currentTime;
 
         // 1. Remove oscillators for waves that no longer exist or are strictly muted
-        // Note: We keep oscillators running but with 0 gain if they exist but are muted, 
-        // to prevent clicking artifacts from starting/stopping rapidly, unless removed entirely.
         const currentIds = new Set(waves.map(w => w.id));
         oscillatorsRef.current.forEach((nodes, id) => {
             if (!currentIds.has(id)) {
-                nodes.osc.stop();
-                nodes.osc.disconnect();
-                nodes.gain.disconnect();
+                try {
+                    nodes.osc.stop();
+                    nodes.osc.disconnect();
+                    nodes.gain.disconnect();
+                } catch (e) {
+                    // Ignore already stopped errors
+                }
                 oscillatorsRef.current.delete(id);
             }
         });
@@ -71,20 +77,17 @@ export const useAudio = (waves: Wave[]) => {
             }
 
             // Update Parameters
-            // Frequency
-            // Ramping prevents zipper noise
-            nodes.osc.frequency.setTargetAtTime(wave.freq, now, 0.05);
+            // Map visual freq to audio freq
+            const audioFreq = wave.freq * FREQ_MULTIPLIER;
+            nodes.osc.frequency.setTargetAtTime(audioFreq, now, 0.05);
 
             // Amplitude (Volume)
             // If muted or amp is 0, gain is 0. 
             // We normalize amp 0-100 to 0-1 gain.
+            // We also divide by waves.length (roughly) or just keep it low to avoid distortion?
+            // Let's just use the amp value directly scaled down.
             const targetGain = wave.muted ? 0 : (wave.amp / 100);
             nodes.gain.gain.setTargetAtTime(targetGain, now, 0.05);
-            
-            // Phase is tricky in Web Audio (it's continuous). 
-            // We can't easily "set" phase without resetting the oscillator, which causes clicks.
-            // For continuous audio, phase is less audible than frequency, so we skip live phase shifting 
-            // in the audio engine for this implementation, although it's crucial for the visualizer.
         });
 
     }, [waves, isPlaying]);
