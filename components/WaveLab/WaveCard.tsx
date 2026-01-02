@@ -13,7 +13,8 @@ interface WaveCardProps {
 
 export const WaveCard: React.FC<WaveCardProps> = ({ wave, onChange, onRemove, onCounter, isRemovable }) => {
     
-    const canvasRef = useCanvasAnimation((ctx, time, width, height) => {
+    // Updated signature: added deltaTime (unused here)
+    const canvasRef = useCanvasAnimation((ctx, time, deltaTime, width, height) => {
         const cy = height / 2;
         ctx.clearRect(0, 0, width, height);
 

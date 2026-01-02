@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-type DrawCallback = (ctx: CanvasRenderingContext2D, time: number, width: number, height: number) => void;
+type DrawCallback = (ctx: CanvasRenderingContext2D, time: number, deltaTime: number, width: number, height: number) => void;
 
 export const useCanvasAnimation = (
     draw: DrawCallback,
@@ -9,6 +9,7 @@ export const useCanvasAnimation = (
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const requestRef = useRef<number>();
     const startTimeRef = useRef<number>(performance.now());
+    const lastTimeRef = useRef<number>(performance.now());
     
     // Keep a mutable ref to the callback to avoid restarting the animation loop on every render
     const drawRef = useRef(draw);
@@ -37,8 +38,12 @@ export const useCanvasAnimation = (
         const height = rect.height;
 
         const animate = (time: number) => {
-            const elapsed = (time - startTimeRef.current) / 1000;
-            drawRef.current(ctx, elapsed, width, height);
+            // time is performance.now() passed by RAF
+            const totalElapsed = (time - startTimeRef.current) / 1000;
+            const deltaTime = (time - lastTimeRef.current) / 1000;
+            lastTimeRef.current = time;
+
+            drawRef.current(ctx, totalElapsed, deltaTime, width, height);
             requestRef.current = requestAnimationFrame(animate);
         };
 

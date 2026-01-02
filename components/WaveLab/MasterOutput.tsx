@@ -16,6 +16,10 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         text: 'Initializing...', type: 'normal'
     });
 
+    // Speed Control
+    const [speed, setSpeed] = useState(1);
+    const simTimeRef = useRef(0);
+
     // View Controls
     const [zoom, setZoom] = useState(1);
     const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -55,10 +59,14 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     // Helper to check if wave contributes
     const isActive = (w: Wave) => !w.muted && w.amp > 0;
 
-    const canvasRef = useCanvasAnimation((ctx, time, width, height) => {
+    const canvasRef = useCanvasAnimation((ctx, _totalTime, deltaTime, width, height) => {
         const cx = width / 2;
         const cy = height / 2;
         const activeWaves = waves.filter(isActive);
+
+        // Update Simulation Time
+        simTimeRef.current += deltaTime * speed;
+        const time = simTimeRef.current;
 
         // Clear canvas
         if (viewMode !== 'chladni') {
@@ -431,8 +439,8 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
     return (
         <div className="bg-gray-900 rounded-xl shadow-xl border border-gray-800 p-4 sticky top-4 z-20 backdrop-blur-sm bg-opacity-95 transition-all duration-500">
-            <div className="flex flex-col sm:flex-row justify-between items-center mb-3 gap-3">
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-3 gap-3">
+                <div className="flex items-center gap-3 w-full md:w-auto">
                     <h2 className="text-white font-semibold text-sm tracking-wide hidden sm:block">
                         {viewMode === 'time' ? 'Time Domain' : viewMode === 'lissajous' ? 'Lissajous (XY)' : viewMode === 'chladni' ? 'Cymatics (2D)' : 'Oobleck (3D)'}
                     </h2>
@@ -462,9 +470,22 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                             Fluid
                         </button>
                     </div>
+
+                    {/* Speed Slider */}
+                    <div className="flex items-center gap-2 border-l border-gray-700 pl-3 ml-1">
+                        <span className="text-[10px] text-gray-500 font-bold uppercase hidden sm:inline">Speed</span>
+                        <input 
+                            type="range" 
+                            min="0" max="4" step="0.1" 
+                            value={speed} 
+                            onChange={e => setSpeed(parseFloat(e.target.value))}
+                            className="w-16 sm:w-20 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        />
+                        <span className="text-xs font-mono text-gray-400 w-8">{speed.toFixed(1)}x</span>
+                    </div>
                 </div>
                 
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                     <button 
                         onClick={toggleAudio}
                         className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors border ${

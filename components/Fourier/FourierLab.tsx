@@ -18,7 +18,8 @@ export const FourierLab: React.FC = () => {
     // Compute coefficients only when drawing changes
     const coefficients = useMemo(() => computeDFT(drawing), [drawing]);
 
-    const reconstructionCanvasRef = useCanvasAnimation((ctx, time, width, height) => {
+    // Updated signature: added deltaTime
+    const reconstructionCanvasRef = useCanvasAnimation((ctx, time, deltaTime, width, height) => {
         ctx.clearRect(0, 0, width, height);
         
         // Draw ghost of original drawing
