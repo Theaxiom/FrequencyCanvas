@@ -251,15 +251,11 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         // --- NON-NEWTONIAN FLUID (3D MESH) ---
         else if (viewMode === 'fluid') {
             // 3D Projection Parameters
-            const gridSize = 45; // Resolution of the mesh
-            const gridSpacing = (width * 1.3) / gridSize; 
+            const gridSize = 63; // Resolution of the mesh (Increased for 3x3 scaling)
+            // Scale out to 3x3 area (width * 4.0 covers roughly 3x the previous area)
+            const gridSpacing = (width * 4.0) / gridSize; 
             const offset = (gridSize * gridSpacing) / 2;
             
-            // Camera Parameters for X' = X/Z formula
-            // We define camera at (0,0,0). Object is translated by cameraZ.
-            // Moving camera further back (increasing Z) flattens perspective (Telephoto effect)
-            // increasing screenScale maintains the visual size.
-            // This reduces the "extreme stretching" distortion.
             const cameraZ = 2500 / Math.max(0.1, zoom); 
             const screenScale = 1800; 
 
@@ -289,8 +285,9 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                         let reSum = 0;
                         let imSum = 0;
                         
-                        const nx = (x / gridSize) * 2 - 1;
-                        const nz = (z / gridSize) * 2 - 1;
+                        // Scale normalized coords to -3 to 3 to show 3x3 repetition pattern
+                        const nx = ((x / gridSize) * 6) - 3;
+                        const nz = ((z / gridSize) * 6) - 3;
 
                         for (const w of waveParams) {
                             const d = Math.sqrt(nx*nx + nz*nz);
@@ -322,7 +319,6 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     rz = h * Math.sin(rotX) + rz * Math.cos(rotX);
 
                     // 2. Camera Translation
-                    // Move the object along Z axis to be in front of the camera (which is at 0,0,0)
                     const Z = rz + cameraZ;
 
                     // 3. Perspective Projection: X' = X / Z
@@ -332,12 +328,9 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     const yPrime = ry / Z;
 
                     // 4. Viewport Mapping (Screen Space)
-                    // Convert normalized projection to pixel coordinates
                     const sx = xPrime * screenScale + cx;
                     const sy = yPrime * screenScale + cy + (pan.y * 0.5);
 
-                    // Store depth metric for shading (proportional to 1/Z)
-                    // We scale it back up to roughly 0..1 range for the alpha math below
                     const depthMetric = screenScale / Z;
 
                     points.push({ x: sx, y: sy, z: rz, depth: depthMetric });
@@ -345,7 +338,6 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             }
 
             // Draw Mesh (Painter's Algorithm by loop order Z then X)
-            // We draw Quads
             ctx.lineWidth = 1;
             
             for (let z = 0; z < gridSize - 1; z++) {
@@ -356,7 +348,6 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     const p3 = points[i + gridSize + 1];
                     const p4 = points[i + gridSize];
 
-                    // Simple visibility check based on clip
                     if (!p1 || !p2 || !p3 || !p4) continue;
 
                     ctx.beginPath();
@@ -369,7 +360,6 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     // Fluid Color Grading
                     const heightFactor = Math.min(1, Math.abs(p1.y - cy) / 150);
                     
-                    // Base color logic
                     const r = 40 + (heightFactor * 100);
                     const g = 10 + (heightFactor * 200);
                     const b = 60 + (heightFactor * 255);
