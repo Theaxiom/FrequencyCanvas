@@ -1,0 +1,5 @@
+{
+  "name": "Frequency Canvas",
+  "description": "An interactive exploration of wave interference and Fourier series. Experiment with summing frequencies or draw waves to see their harmonic decomposition.",
+  "requestFramePermissions": []
+}
