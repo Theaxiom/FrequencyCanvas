@@ -129,7 +129,7 @@ function App() {
             create(8 * 1.618, 50, 0);
             break;
 
-        // --- LISSAJOUS ---
+        // --- LISSAJOUS / CYMATICS ---
         case 'lissajous_circle':
             // 1:1 Ratio, 90 deg phase
             create(5, 50, 0);
@@ -144,6 +144,13 @@ function App() {
             // 1:2 Ratio, 90 deg phase (Figure 8)
             create(6, 50, 90);
             create(3, 50, 0);
+            break;
+        case 'cymatics':
+            // Modes that look good on a square plate
+            // Freqs that don't divide evenly create interesting interference grids
+            create(3, 50, 0);
+            create(5, 50, 0);
+            create(7, 30, 0);
             break;
     }
     
@@ -250,15 +257,15 @@ function App() {
                                         Golden Ratio (Phi)
                                     </button>
 
-                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">Lissajous (XY)</div>
+                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">2D Visualization</div>
                                     <button onClick={() => applyPreset('lissajous_circle')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
-                                        Perfect Circle (90°)
+                                        Lissajous Circle (90°)
                                     </button>
                                     <button onClick={() => applyPreset('lissajous_knot')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
-                                        Knot (3:2 Ratio)
+                                        Lissajous Knot (3:2)
                                     </button>
-                                    <button onClick={() => applyPreset('lissajous_8')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
-                                        Figure 8 (1:2 Ratio)
+                                    <button onClick={() => applyPreset('cymatics')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-amber-50 hover:text-amber-700 border-l-2 border-transparent hover:border-amber-500">
+                                        Cymatics (Chladni Plate)
                                     </button>
                                 </div>
                             )}
