@@ -69,85 +69,140 @@ function App() {
     };
 
     switch(type) {
-        // --- INTERFERENCE ---
+        // --- WAVE PHYSICS ---
         case 'beats':
-            // Beat Frequency: Two waves close in frequency. 
-            // 20x multiplier -> 10*20=200Hz, 10.2*20=204Hz. Beat=4Hz (nice wah-wah).
+            // Binaural Beats: ~4Hz diff.
             create(10, 50, 0);
             create(10.2, 50, 0); 
             break;
+        case 'fast_beats':
+            // "Roughness": 30Hz diff creates a harsh buzz.
+            create(10, 50, 0);
+            create(11.5, 50, 0); 
+            break;
         case 'standing':
-            // Standing Wave: Two identical waves moving in opposite directions
-            // Visually represented by phase opposition here for interference
+            // Standing Wave: Equal freq, opposite direction (here visualized as phase opp).
             create(5, 50, 0);
             create(5, 50, 180);
             break;
         case 'am_synth':
-            // AM Synthesis Sidebands (Carrier 10Hz, Mod 2Hz)
-            // C: 10Hz, L: 8Hz, U: 12Hz
+            // AM Synthesis: Carrier (10) + Sidebands (8, 12).
             create(8, 25, 0);
             create(10, 50, 0);
             create(12, 25, 0);
             break;
+        case 'fm_approx':
+            // Narrowband FM Approximation: Carrier + Sidebands with specific phases.
+            // C=10, M=1. Sidebands at 9, 11, 8, 12...
+            create(10, 50, 0);
+            create(11, 30, 0);
+            create(9, 30, 180); // Phase flipped
+            create(12, 10, 0);
+            create(8, 10, 0);
+            break;
 
-        // --- HARMONICS & TIMBRE ---
+        // --- SYNTHESIS & TIMBRE ---
         case 'square_approx':
-            // Square Wave: Odd harmonics (f, 3f, 5f) with 1/n amplitude
-            create(4, 50, 0);
-            create(12, 16.6, 0); // 50/3
-            create(20, 10, 0);   // 50/5
+            // Square: Odd harmonics (f, 3f, 5f) at 1/n amp.
+            create(4, 60, 0);
+            create(12, 20, 0);
+            create(20, 12, 0);
+            create(28, 8, 0);
+            break;
+        case 'triangle_approx':
+            // Triangle: Odd harmonics (f, 3f, 5f) at 1/n^2 amp, alternating phase.
+            create(4, 60, 0);
+            create(12, 6.6, 180); // 1/9th amp, flipped
+            create(20, 2.4, 0);   // 1/25th amp
             break;
         case 'saw_approx':
-            // Sawtooth: All harmonics (f, 2f, 3f) with 1/n amplitude
-            create(4, 50, 0);
-            create(8, 25, 0);
-            create(12, 16.6, 0);
-            break;
-        case 'octaves':
-            // Octave Stack: 1:2:4
-            create(4, 50, 0); // 80Hz
-            create(8, 30, 0); // 160Hz
-            create(16, 15, 0); // 320Hz
+            // Sawtooth: All integer harmonics (f, 2f, 3f...) at 1/n amp.
+            create(4, 60, 0);
+            create(8, 30, 0);
+            create(12, 20, 0);
+            create(16, 15, 0);
+            create(20, 12, 0);
             break;
 
-        // --- MUSIC INTERVALS ---
+        // --- MUSIC & PSYCHOACOUSTICS ---
+        case 'octaves':
+            // Octaves: 1:2:4
+            create(4, 50, 0);
+            create(8, 25, 0);
+            create(16, 12, 0);
+            break;
+        case 'fifth':
+            // Perfect Fifth: 2:3 ratio (Very consonant).
+            create(6, 50, 0);
+            create(9, 50, 0);
+            break;
         case 'major':
-            // Major Chord (Just Intonation): 4:5:6 ratio
-            create(6, 40, 0); // Root
-            create(7.5, 30, 0); // Major Third
-            create(9, 30, 0); // Perfect Fifth
+            // Major Triad (Just Intonation): 4:5:6.
+            create(8, 40, 0);
+            create(10, 30, 0);
+            create(12, 30, 0);
             break;
         case 'minor':
-            // Minor Chord (Just Intonation): 10:12:15 ratio
-            create(5, 40, 0);   // 10 scaled down
-            create(6, 30, 0);   // 12 scaled down
-            create(7.5, 30, 0); // 15 scaled down
+            // Minor Triad (Just Intonation): 10:12:15.
+            create(10, 40, 0);
+            create(12, 30, 0);
+            create(15, 30, 0);
+            break;
+        case 'maj7':
+            // Major 7th Chord: 8:10:12:15.
+            create(8, 40, 0);
+            create(10, 30, 0);
+            create(12, 30, 0);
+            create(15, 30, 0);
+            break;
+        case 'cluster':
+            // Tone Cluster: Frequencies very close together.
+            create(10, 25, 0);
+            create(10.5, 25, 0);
+            create(11, 25, 0);
+            create(11.5, 25, 0);
+            break;
+        case 'missing_fund':
+            // Missing Fundamental: 200, 300, 400Hz. Brain hears 100Hz.
+            // Using 5, 7.5, 10 relative here (Fund=2.5).
+            create(5, 33, 0);
+            create(7.5, 33, 0);
+            create(10, 33, 0);
             break;
         case 'golden':
-            // Golden Ratio (Phi) Dissonance
+            // Golden Ratio (Phi) Dissonance.
             create(8, 50, 0);
             create(8 * 1.618, 50, 0);
             break;
 
-        // --- LISSAJOUS / CYMATICS ---
+        // --- 2D VISUAL MATH ---
         case 'lissajous_circle':
-            // 1:1 Ratio, 90 deg phase
+            // 1:1, 90 deg.
             create(5, 50, 0);
             create(5, 50, 90);
             break;
         case 'lissajous_knot':
-            // 3:2 Ratio (Fifth) makes a nice knot in XY mode
+            // 3:2, 90 deg (The "Fifth" Knot).
             create(3, 50, 0);
             create(2, 50, 90); 
             break;
         case 'lissajous_8':
-            // 1:2 Ratio, 90 deg phase (Figure 8)
+            // 1:2, 90 deg (Figure 8).
             create(6, 50, 90);
             create(3, 50, 0);
             break;
+        case 'lissajous_complex':
+            // 3:4 ratio.
+            create(3, 50, 0);
+            create(4, 50, 90);
+            break;
+        case 'lissajous_crown':
+            // 5:4 ratio.
+            create(5, 50, 0);
+            create(4, 50, 90);
+            break;
         case 'cymatics':
-            // Modes that look good on a square plate
-            // Freqs that don't divide evenly create interesting interference grids
+            // Odd ratios create complex interference grids on the plate.
             create(3, 50, 0);
             create(5, 50, 0);
             create(7, 30, 0);
@@ -222,47 +277,75 @@ function App() {
                             </button>
                             {/* Dropdown */}
                             {isPresetOpen && (
-                                <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-20 animate-fade-in max-h-96 overflow-y-auto">
+                                <div className="absolute right-0 mt-1 w-64 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-20 animate-fade-in max-h-96 overflow-y-auto">
                                     
-                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50">Interference</div>
+                                    {/* WAVE PHYSICS */}
+                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50">Wave Physics</div>
                                     <button onClick={() => applyPreset('beats')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
-                                        Binaural Beats (4Hz diff)
+                                        Binaural Beats (Slow)
+                                    </button>
+                                    <button onClick={() => applyPreset('fast_beats')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Roughness (Fast Beats)
                                     </button>
                                     <button onClick={() => applyPreset('standing')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-red-50 hover:text-red-700 border-l-2 border-transparent hover:border-red-500">
-                                        Phase Cancellation
+                                        Standing Wave (Cancellation)
                                     </button>
                                     <button onClick={() => applyPreset('am_synth')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
                                         AM Synthesis (Sidebands)
                                     </button>
+                                    <button onClick={() => applyPreset('fm_approx')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        FM Synthesis (Approx)
+                                    </button>
 
-                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">Harmonics</div>
+                                    {/* SYNTHESIS */}
+                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">Synthesis & Timbre</div>
                                     <button onClick={() => applyPreset('square_approx')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
-                                        Square Wave Approx
+                                        Square Wave (Odd Harmonics)
+                                    </button>
+                                    <button onClick={() => applyPreset('triangle_approx')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Triangle Wave (Soft Odd)
                                     </button>
                                     <button onClick={() => applyPreset('saw_approx')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
-                                        Sawtooth Wave Approx
+                                        Sawtooth Wave (All Harmonics)
+                                    </button>
+
+                                    {/* MUSIC & PSYCHOACOUSTICS */}
+                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">Music & Psychoacoustics</div>
+                                    <button onClick={() => applyPreset('major')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Major Triad (4:5:6)
+                                    </button>
+                                    <button onClick={() => applyPreset('minor')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Minor Triad (10:12:15)
+                                    </button>
+                                    <button onClick={() => applyPreset('maj7')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Major 7th Chord
+                                    </button>
+                                    <button onClick={() => applyPreset('cluster')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Tone Cluster (Dissonant)
+                                    </button>
+                                    <button onClick={() => applyPreset('missing_fund')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 border-l-2 border-transparent hover:border-purple-500">
+                                        Missing Fundamental (Phantom Tone)
                                     </button>
                                     <button onClick={() => applyPreset('octaves')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
                                         Octave Stack (1:2:4)
                                     </button>
 
-                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">Music Ratios</div>
-                                    <button onClick={() => applyPreset('major')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
-                                        Major Chord (4:5:6)
-                                    </button>
-                                    <button onClick={() => applyPreset('minor')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
-                                        Minor Chord (10:12:15)
-                                    </button>
-                                    <button onClick={() => applyPreset('golden')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
-                                        Golden Ratio (Phi)
-                                    </button>
-
-                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">2D Visualization</div>
+                                    {/* 2D MATH */}
+                                    <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">2D Visual Math</div>
                                     <button onClick={() => applyPreset('lissajous_circle')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
-                                        Lissajous Circle (90°)
+                                        Lissajous Circle (1:1)
                                     </button>
                                     <button onClick={() => applyPreset('lissajous_knot')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
                                         Lissajous Knot (3:2)
+                                    </button>
+                                    <button onClick={() => applyPreset('lissajous_8')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
+                                        Lissajous Figure 8 (1:2)
+                                    </button>
+                                    <button onClick={() => applyPreset('lissajous_complex')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
+                                        Complex Knot (3:4)
+                                    </button>
+                                    <button onClick={() => applyPreset('lissajous_crown')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
+                                        The Crown (5:4)
                                     </button>
                                     <button onClick={() => applyPreset('cymatics')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-amber-50 hover:text-amber-700 border-l-2 border-transparent hover:border-amber-500">
                                         Cymatics (Chladni Plate)
