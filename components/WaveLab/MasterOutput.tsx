@@ -183,7 +183,8 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             const imgData = ctx.createImageData(width, height);
             const data = imgData.data;
             
-            let totalAmp = activeWaves.reduce((sum, w) => sum + w.amp, 0);
+            // Normalize assuming max interference of 2 (cos + cos)
+            let totalAmp = activeWaves.reduce((sum, w) => sum + w.amp, 0) * 2;
             totalAmp = totalAmp === 0 ? 1 : totalAmp;
 
             // Scale logic for zoom/pan
@@ -195,16 +196,13 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                 amp: w.amp,
                 spatialFreq: w.freq * 2.0 * Math.PI,
                 // The temporal speed factor (Phasor rotation)
-                // This preserves relative phase/beats but removes global strobing
                 angleBase: (w.phase * Math.PI / 180) - (time * w.freq * 5)
             }));
 
             for (let y = 0; y < height; y++) {
-                // Map screen Y to world Y
                 const ny = (y - cy - pan.y) / currentScale;
                 
                 for (let x = 0; x < width; x++) {
-                    // Map screen X to world X
                     const nx = (x - cx - pan.x) / currentScale;
 
                     let reSum = 0;
@@ -212,22 +210,29 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
                     for (let i = 0; i < waveParams.length; i++) {
                         const w = waveParams[i];
-                        // Spatial Standing Wave function
-                        const spatialVal = Math.sin(w.spatialFreq * nx) * Math.sin(w.spatialFreq * ny);
+                        
+                        // PHYSICS UPDATE: Rigid Plate Model
+                        // 1. Use Cosine (Free Edge boundary) instead of Sine (Fixed Edge)
+                        // 2. Use Addition (Superposition) instead of Multiplication.
+                        //    Multiplication simulates a constrained grid.
+                        //    Addition simulates two orthogonal waves passing through the substrate.
+                        //    This allows for diagonal nodal lines and "X" patterns typical of Chladni plates.
+                        const spatialVal = Math.cos(w.spatialFreq * nx) + Math.cos(w.spatialFreq * ny);
                         
                         // Add to phasor sum
                         reSum += w.amp * spatialVal * Math.cos(w.angleBase);
                         imSum += w.amp * spatialVal * Math.sin(w.angleBase);
                     }
 
-                    // Magnitude of the complex envelope (eliminates strobing)
+                    // Magnitude of the complex envelope (RMS)
+                    // This creates the visual pattern of the standing wave average over time
                     const magnitude = Math.sqrt(reSum * reSum + imSum * imSum);
                     const normalizedAmp = magnitude / totalAmp;
                     
-                    // Smooth visualization (No noise/grain)
-                    // We map the amplitude directly to brightness with a curve for contrast
+                    // Smooth visualization
+                    // Contrast curve to define sharp nodal lines
                     const val = Math.min(1, normalizedAmp);
-                    const intensity = Math.pow(val, 1.2); 
+                    const intensity = Math.pow(val, 1.5); // Slightly steeper curve for sharper lines
 
                     const index = (y * width + x) * 4;
                     
@@ -274,7 +279,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
              if (activeWaves.length < 2) setStatus({ text: 'Lissajous needs 2+ layers', type: 'normal' });
              else setStatus({ text: 'XY Phase Plot', type: 'normal' });
         } else if (viewMode === 'chladni') {
-             setStatus({ text: `Amplitude Map (Zoom: ${zoom.toFixed(1)}x)`, type: 'normal' });
+             setStatus({ text: `Rigid Plate Mode (Zoom: ${zoom.toFixed(1)}x)`, type: 'normal' });
         } else {
              setStatus({ text: 'Composite Wave', type: 'normal' });
         }
