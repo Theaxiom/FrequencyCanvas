@@ -9,6 +9,11 @@ export const FourierLab: React.FC = () => {
     const [drawing, setDrawing] = useState<number[]>(new Array(200).fill(0.5));
     const [harmonics, setHarmonics] = useState<number>(5);
     const [showComponents, setShowComponents] = useState<boolean>(false);
+    
+    // Editor controls
+    const [brushSize, setBrushSize] = useState<number>(5);
+    const [zoom, setZoom] = useState<number>(1);
+    const [pan, setPan] = useState<number>(0);
 
     // Compute coefficients only when drawing changes
     const coefficients = useMemo(() => computeDFT(drawing), [drawing]);
@@ -125,9 +130,49 @@ export const FourierLab: React.FC = () => {
 
                 <div className="grid lg:grid-cols-2 gap-8">
                     {/* Drawing Input */}
-                    <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Input Signal (Draw Here)</label>
-                        <DrawingCanvas data={drawing} onChange={setDrawing} />
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-end">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Input Signal (Draw Here)</label>
+                        </div>
+                        
+                        {/* Editor Controls */}
+                        <div className="flex gap-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                             <div className="flex-1">
+                                <RangeSlider 
+                                    label="Brush Size" 
+                                    min={1} max={20} step={1} 
+                                    value={brushSize} 
+                                    onChange={(e) => setBrushSize(parseInt(e.target.value))} 
+                                    color="#6366f1"
+                                />
+                             </div>
+                             <div className="flex-1">
+                                <RangeSlider 
+                                    label="Zoom" 
+                                    min={1} max={5} step={0.1} 
+                                    value={zoom} 
+                                    onChange={(e) => setZoom(parseFloat(e.target.value))} 
+                                    color="#6366f1"
+                                />
+                             </div>
+                             <div className={`flex-1 transition-opacity ${zoom <= 1 ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
+                                <RangeSlider 
+                                    label="Pan View" 
+                                    min={0} max={1} step={0.01} 
+                                    value={pan} 
+                                    onChange={(e) => setPan(parseFloat(e.target.value))} 
+                                    color="#6366f1"
+                                />
+                             </div>
+                        </div>
+
+                        <DrawingCanvas 
+                            data={drawing} 
+                            onChange={setDrawing} 
+                            brushSize={brushSize}
+                            zoom={zoom}
+                            pan={pan}
+                        />
                     </div>
 
                     {/* Output */}
