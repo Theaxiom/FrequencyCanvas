@@ -79,7 +79,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             ctx.strokeStyle = '#10B981'; // Emerald
             ctx.lineWidth = 3;
             ctx.lineJoin = 'round';
-            ctx.shadowBlur = 8; // Reduced slightly to prevent excessive blooming
+            ctx.shadowBlur = 8;
             ctx.shadowColor = ctx.strokeStyle;
 
             if (activeWaves.length === 0) {
@@ -190,6 +190,15 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             const baseScale = height / 2;
             const currentScale = baseScale * zoom;
 
+            // Optimization: Pre-calculate wave constants
+            const waveParams = activeWaves.map(w => ({
+                amp: w.amp,
+                spatialFreq: w.freq * 2.0 * Math.PI,
+                // The temporal speed factor (Phasor rotation)
+                // This preserves relative phase/beats but removes global strobing
+                angleBase: (w.phase * Math.PI / 180) - (time * w.freq * 5)
+            }));
+
             for (let y = 0; y < height; y++) {
                 // Map screen Y to world Y
                 const ny = (y - cy - pan.y) / currentScale;
@@ -198,40 +207,35 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     // Map screen X to world X
                     const nx = (x - cx - pan.x) / currentScale;
 
-                    let zSum = 0;
+                    let reSum = 0;
+                    let imSum = 0;
 
-                    for (const w of activeWaves) {
-                        // 2D Standing Wave Approximation
-                        const spatialFreq = w.freq * 2.0; 
-                        const phaseRad = (w.phase * Math.PI) / 180;
+                    for (let i = 0; i < waveParams.length; i++) {
+                        const w = waveParams[i];
+                        // Spatial Standing Wave function
+                        const spatialVal = Math.sin(w.spatialFreq * nx) * Math.sin(w.spatialFreq * ny);
                         
-                        const spatialVal = Math.sin(spatialFreq * nx * Math.PI) * Math.sin(spatialFreq * ny * Math.PI);
-                        const timeVal = Math.cos(time * 5 + phaseRad);
-                        
-                        zSum += (w.amp) * spatialVal * timeVal;
+                        // Add to phasor sum
+                        reSum += w.amp * spatialVal * Math.cos(w.angleBase);
+                        imSum += w.amp * spatialVal * Math.sin(w.angleBase);
                     }
 
-                    const amplitude = Math.abs(zSum);
+                    // Magnitude of the complex envelope (eliminates strobing)
+                    const magnitude = Math.sqrt(reSum * reSum + imSum * imSum);
+                    const normalizedAmp = magnitude / totalAmp;
                     
-                    // NEW VISUALIZATION MODE: Energy/Displacement
-                    // Old mode: Brightness = 1 - (Amp / Max). This caused flashing white on zero-crossing.
-                    // New mode: Brightness = Amp / Max. This causes fading to dark on zero-crossing (natural).
-                    
-                    let intensity = amplitude / (totalAmp * 0.7); 
-                    intensity = Math.min(1, intensity);
-                    // Slight curve to make vibration patterns pop
-                    intensity = Math.pow(intensity, 0.8);
+                    // Smooth visualization (No noise/grain)
+                    // We map the amplitude directly to brightness with a curve for contrast
+                    const val = Math.min(1, normalizedAmp);
+                    const intensity = Math.pow(val, 1.2); 
 
                     const index = (y * width + x) * 4;
                     
-                    // Render: Amber/Fire palette for high energy
-                    // Background (Intensity 0): Dark gray/blue
-                    // Peak (Intensity 1): Bright Amber/White
-                    
-                    data[index]     = 10 + (245 * intensity);  // R
-                    data[index + 1] = 12 + (180 * intensity);  // G
-                    data[index + 2] = 20 + (100 * intensity);   // B
-                    data[index + 3] = 255;                     // Alpha
+                    // Color Palette: Deep Blue (Node) -> White/Gold (Antinode)
+                    data[index]     = 10 + (245 * intensity);
+                    data[index + 1] = 12 + (208 * intensity);
+                    data[index + 2] = 20 + (130 * intensity);
+                    data[index + 3] = 255;
                 }
             }
             ctx.putImageData(imgData, 0, 0);
@@ -270,7 +274,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
              if (activeWaves.length < 2) setStatus({ text: 'Lissajous needs 2+ layers', type: 'normal' });
              else setStatus({ text: 'XY Phase Plot', type: 'normal' });
         } else if (viewMode === 'chladni') {
-             setStatus({ text: `Cymatics (Zoom: ${zoom.toFixed(1)}x)`, type: 'normal' });
+             setStatus({ text: `Amplitude Map (Zoom: ${zoom.toFixed(1)}x)`, type: 'normal' });
         } else {
              setStatus({ text: 'Composite Wave', type: 'normal' });
         }
@@ -381,11 +385,11 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     <span className="flex items-center gap-2">
                         <span className="flex items-center gap-1">
                             <span className="w-2 h-2 bg-gray-800 border border-gray-600 rounded-sm"></span>
-                            <span>Nodes (Quiet)</span>
+                            <span>Quiet (Node)</span>
                         </span>
                         <span className="flex items-center gap-1">
-                            <span className="w-2 h-2 bg-amber-500 rounded-sm"></span>
-                            <span>Antinodes (Vibration)</span>
+                            <span className="w-2 h-2 bg-amber-200 rounded-sm"></span>
+                            <span>Loud (Antinode)</span>
                         </span>
                     </span>
                     <span className="font-medium text-amber-600">Scroll to Zoom • Drag to Pan</span>
