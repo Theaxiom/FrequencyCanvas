@@ -79,7 +79,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             ctx.strokeStyle = '#10B981'; // Emerald
             ctx.lineWidth = 3;
             ctx.lineJoin = 'round';
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 8; // Reduced slightly to prevent excessive blooming
             ctx.shadowColor = ctx.strokeStyle;
 
             if (activeWaves.length === 0) {
@@ -126,7 +126,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             ctx.strokeStyle = '#F472B6'; // Pink
             ctx.lineWidth = 3;
             ctx.lineJoin = 'round';
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 8;
             ctx.shadowColor = ctx.strokeStyle;
 
             if (activeWaves.length === 0) {
@@ -212,15 +212,26 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     }
 
                     const amplitude = Math.abs(zSum);
-                    let intensity = Math.max(0, 1 - (amplitude / (totalAmp * 0.4))); 
-                    intensity = Math.pow(intensity, 4); 
+                    
+                    // NEW VISUALIZATION MODE: Energy/Displacement
+                    // Old mode: Brightness = 1 - (Amp / Max). This caused flashing white on zero-crossing.
+                    // New mode: Brightness = Amp / Max. This causes fading to dark on zero-crossing (natural).
+                    
+                    let intensity = amplitude / (totalAmp * 0.7); 
+                    intensity = Math.min(1, intensity);
+                    // Slight curve to make vibration patterns pop
+                    intensity = Math.pow(intensity, 0.8);
 
                     const index = (y * width + x) * 4;
                     
-                    data[index] = 10 + (240 * intensity);     // R
-                    data[index + 1] = 15 + (200 * intensity); // G
-                    data[index + 2] = 30 + (100 * intensity); // B
-                    data[index + 3] = 255;                    // Alpha
+                    // Render: Amber/Fire palette for high energy
+                    // Background (Intensity 0): Dark gray/blue
+                    // Peak (Intensity 1): Bright Amber/White
+                    
+                    data[index]     = 10 + (245 * intensity);  // R
+                    data[index + 1] = 12 + (180 * intensity);  // G
+                    data[index + 2] = 20 + (100 * intensity);   // B
+                    data[index + 3] = 255;                     // Alpha
                 }
             }
             ctx.putImageData(imgData, 0, 0);
@@ -368,9 +379,14 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             {viewMode === 'chladni' && (
                 <div className="mt-2 text-[10px] text-gray-500 flex justify-between px-1">
                     <span className="flex items-center gap-2">
-                        <span>Bright Areas: Nodes (Low Vibration)</span>
-                        <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
-                        <span>Dark: Antinodes</span>
+                        <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 bg-gray-800 border border-gray-600 rounded-sm"></span>
+                            <span>Nodes (Quiet)</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 bg-amber-500 rounded-sm"></span>
+                            <span>Antinodes (Vibration)</span>
+                        </span>
                     </span>
                     <span className="font-medium text-amber-600">Scroll to Zoom • Drag to Pan</span>
                 </div>

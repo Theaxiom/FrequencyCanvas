@@ -70,6 +70,15 @@ function App() {
 
     switch(type) {
         // --- WAVE PHYSICS ---
+        case 'harmonic_series':
+            // Fundamental + Integer Harmonics (1f, 2f, 3f...)
+            create(2, 60, 0);
+            create(4, 30, 0);
+            create(6, 20, 0);
+            create(8, 15, 0);
+            create(10, 12, 0);
+            create(12, 10, 0);
+            break;
         case 'beats':
             // Binaural Beats: ~4Hz diff.
             create(10, 50, 0);
@@ -80,10 +89,24 @@ function App() {
             create(10, 50, 0);
             create(11.5, 50, 0); 
             break;
+        case 'dial_tone':
+            // North American Dial Tone (350Hz + 440Hz). Scaled down /100.
+            create(3.5, 50, 0);
+            create(4.4, 50, 0);
+            break;
         case 'standing':
             // Standing Wave: Equal freq, opposite direction (here visualized as phase opp).
             create(5, 50, 0);
             create(5, 50, 180);
+            break;
+        case 'wifi':
+            // OFDM (Orthogonal Frequency Division Multiplexing)
+            // Closely spaced carriers that don't interfere at their peak center frequencies
+            create(3, 40, 0);
+            create(4, 40, 0);
+            create(5, 40, 0);
+            create(6, 40, 0);
+            create(7, 40, 0);
             break;
         case 'am_synth':
             // AM Synthesis: Carrier (10) + Sidebands (8, 12).
@@ -125,6 +148,14 @@ function App() {
             break;
 
         // --- MUSIC & PSYCHOACOUSTICS ---
+        case 'pentatonic':
+            // Major Pentatonic Scale (Just Intonation)
+            create(4, 40, 0);   // Root
+            create(4.5, 30, 0); // 9/8 (Major Second)
+            create(5, 30, 0);   // 5/4 (Major Third)
+            create(6, 30, 0);   // 3/2 (Perfect Fifth)
+            create(6.66, 30, 0);// 5/3 (Major Sixth)
+            break;
         case 'octaves':
             // Octaves: 1:2:4
             create(4, 50, 0);
@@ -176,6 +207,14 @@ function App() {
             break;
 
         // --- 2D VISUAL MATH ---
+        case 'fibonacci':
+            // Fibonacci Sequence (1, 2, 3, 5, 8)
+            create(1, 60, 0);
+            create(2, 50, 0);
+            create(3, 40, 0);
+            create(5, 30, 0);
+            create(8, 20, 0);
+            break;
         case 'lissajous_circle':
             // 1:1, 90 deg.
             create(5, 50, 0);
@@ -281,6 +320,9 @@ function App() {
                                     
                                     {/* WAVE PHYSICS */}
                                     <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50">Wave Physics</div>
+                                    <button onClick={() => applyPreset('harmonic_series')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Harmonic Series (Integer Multiples)
+                                    </button>
                                     <button onClick={() => applyPreset('beats')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
                                         Binaural Beats (Slow)
                                     </button>
@@ -289,6 +331,12 @@ function App() {
                                     </button>
                                     <button onClick={() => applyPreset('standing')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-red-50 hover:text-red-700 border-l-2 border-transparent hover:border-red-500">
                                         Standing Wave (Cancellation)
+                                    </button>
+                                    <button onClick={() => applyPreset('dial_tone')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Telephone Dial Tone
+                                    </button>
+                                    <button onClick={() => applyPreset('wifi')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        OFDM / Wi-Fi Signal
                                     </button>
                                     <button onClick={() => applyPreset('am_synth')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
                                         AM Synthesis (Sidebands)
@@ -311,6 +359,9 @@ function App() {
 
                                     {/* MUSIC & PSYCHOACOUSTICS */}
                                     <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">Music & Psychoacoustics</div>
+                                    <button onClick={() => applyPreset('pentatonic')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
+                                        Pentatonic Scale
+                                    </button>
                                     <button onClick={() => applyPreset('major')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
                                         Major Triad (4:5:6)
                                     </button>
@@ -329,9 +380,15 @@ function App() {
                                     <button onClick={() => applyPreset('octaves')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
                                         Octave Stack (1:2:4)
                                     </button>
+                                    <button onClick={() => applyPreset('golden')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-yellow-50 hover:text-yellow-700 border-l-2 border-transparent hover:border-yellow-500">
+                                        Golden Ratio (Phi)
+                                    </button>
 
                                     {/* 2D MATH */}
                                     <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50 border-t border-gray-100">2D Visual Math</div>
+                                    <button onClick={() => applyPreset('fibonacci')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-green-50 hover:text-green-700 border-l-2 border-transparent hover:border-green-500">
+                                        Fibonacci Sequence
+                                    </button>
                                     <button onClick={() => applyPreset('lissajous_circle')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-pink-50 hover:text-pink-700 border-l-2 border-transparent hover:border-pink-500">
                                         Lissajous Circle (1:1)
                                     </button>
