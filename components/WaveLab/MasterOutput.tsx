@@ -229,15 +229,17 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         // --- NON-NEWTONIAN FLUID (3D MESH) ---
         else if (viewMode === 'fluid') {
             // 3D Projection Parameters
-            const gridSize = 40; // Resolution of the mesh
-            const gridSpacing = (width * 1.5) / gridSize; 
+            const gridSize = 45; // Resolution of the mesh
+            const gridSpacing = (width * 1.3) / gridSize; 
             const offset = (gridSize * gridSpacing) / 2;
             
             // Camera Parameters for X' = X/Z formula
             // We define camera at (0,0,0). Object is translated by cameraZ.
-            // screenScale represents the distance of the projection screen from the eye (in pixels)
-            const cameraZ = 800 / Math.max(0.1, zoom); 
-            const screenScale = 500; 
+            // Moving camera further back (increasing Z) flattens perspective (Telephoto effect)
+            // increasing screenScale maintains the visual size.
+            // This reduces the "extreme stretching" distortion.
+            const cameraZ = 2500 / Math.max(0.1, zoom); 
+            const screenScale = 1800; 
 
             // Auto Rotation
             const rotX = 0.8; // Tilt
@@ -277,9 +279,10 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                         }
                         
                         const mag = Math.sqrt(reSum * reSum + imSum * imSum);
-                        const threshold = 10; 
+                        const threshold = 15; 
                         if (mag > threshold) {
-                            h = -Math.pow((mag - threshold), 1.6) * 1.5;
+                            // Reduced power and multiplier to prevent spikes from stretching to infinity
+                            h = -Math.pow((mag - threshold), 1.2) * 1.5;
                         } else {
                             h = -Math.sin(mag) * 2; 
                         }
@@ -301,7 +304,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     const Z = rz + cameraZ;
 
                     // 3. Perspective Projection: X' = X / Z
-                    if (Z <= 10) continue; // Near clip plane
+                    if (Z <= 100) continue; // Near clip plane
 
                     const xPrime = rx / Z;
                     const yPrime = ry / Z;
