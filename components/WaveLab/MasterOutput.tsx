@@ -9,6 +9,11 @@ interface MasterOutputProps {
 
 type ViewMode = 'time' | 'lissajous' | 'chladni' | 'fluid';
 
+interface ViewState {
+    zoom: number;
+    pan: { x: number; y: number };
+}
+
 export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('time');
     const { isPlaying, toggleAudio } = useAudio(waves);
@@ -20,22 +25,23 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     const [speed, setSpeed] = useState(1);
     const simTimeRef = useRef(0);
 
-    // View Controls
-    const [zoom, setZoom] = useState(1);
-    const [pan, setPan] = useState({ x: 0, y: 0 });
+    // View Controls State (Persisted per view)
+    const [viewSettings, setViewSettings] = useState<Record<ViewMode, ViewState>>({
+        time: { zoom: 1, pan: { x: 0, y: 0 } },
+        lissajous: { zoom: 1, pan: { x: 0, y: 0 } },
+        chladni: { zoom: 1, pan: { x: 0, y: 0 } },
+        fluid: { zoom: 1, pan: { x: 0, y: 0 } }
+    });
+
+    // Derived values for current view
+    const zoom = viewSettings[viewMode].zoom;
+    const pan = viewSettings[viewMode].pan;
+
     const [isDragging, setIsDragging] = useState(false);
     const lastPos = useRef({ x: 0, y: 0 });
     const containerRef = useRef<HTMLDivElement>(null);
 
-    // Reset controls when switching modes
-    useEffect(() => {
-        if (viewMode === 'chladni' || viewMode === 'fluid') {
-            setZoom(1);
-            setPan({ x: 0, y: 0 });
-        }
-    }, [viewMode]);
-
-    // Native Wheel Listener to prevent scrolling
+    // Native Wheel Listener to prevent scrolling and handle zoom
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
@@ -44,7 +50,15 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             if (viewMode === 'chladni' || viewMode === 'fluid') {
                 e.preventDefault();
                 const delta = -e.deltaY * 0.001;
-                setZoom(z => Math.max(0.1, Math.min(10, z * (1 + delta))));
+                
+                setViewSettings(prev => {
+                    const current = prev[viewMode];
+                    const newZoom = Math.max(0.1, Math.min(10, current.zoom * (1 + delta)));
+                    return {
+                        ...prev,
+                        [viewMode]: { ...current, zoom: newZoom }
+                    };
+                });
             }
         };
 
@@ -430,7 +444,17 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         const dx = e.clientX - lastPos.current.x;
         const dy = e.clientY - lastPos.current.y;
         lastPos.current = { x: e.clientX, y: e.clientY };
-        setPan(p => ({ x: p.x + dx, y: p.y + dy }));
+        
+        setViewSettings(prev => {
+            const current = prev[viewMode];
+            return {
+                ...prev,
+                [viewMode]: {
+                    ...current,
+                    pan: { x: current.pan.x + dx, y: current.pan.y + dy }
+                }
+            };
+        });
     };
 
     const handleMouseUp = () => {
