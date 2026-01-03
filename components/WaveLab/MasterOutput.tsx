@@ -29,6 +29,10 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     const [speed, setSpeed] = useState(1);
     const simTimeRef = useRef(0);
 
+    // Auto Rotation State for XYZ
+    const [isAutoRotating, setIsAutoRotating] = useState(true);
+    const autoRotRef = useRef(0);
+
     // View Controls State (Persisted per view)
     const [viewSettings, setViewSettings] = useState<Record<ViewMode, ViewState>>({
         time: { zoom: 1, pan: { x: 0, y: 0 } },
@@ -243,9 +247,14 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             const cameraZ = 1200 / Math.max(0.1, zoom);
             const scale = Math.min(width, height) * 0.4;
             
+            // Auto Rotation Logic
+            if (isAutoRotating) {
+                autoRotRef.current += deltaTime * speed * 0.2;
+            }
+
             // Rotation controlled by mouse pan + auto rotate
             const rotX = (pan.y * 0.01) + 0.5;
-            const rotY = (pan.x * 0.01) + (time * 0.2);
+            const rotY = (pan.x * 0.01) + autoRotRef.current;
 
             // Draw 3D Bounding Box (Reference Cube)
             const boxSize = scale * 1.2;
@@ -646,7 +655,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             }
         }
 
-    }, [waves, viewMode, zoom, pan, height]);
+    }, [waves, viewMode, zoom, pan, height, isAutoRotating, speed]);
 
     // Status logic
     React.useEffect(() => {
@@ -702,6 +711,12 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     // Interaction Handlers (Mouse Drag only)
     const handleMouseDown = (e: React.MouseEvent) => {
         if (viewMode !== 'chladni' && viewMode !== 'fluid' && viewMode !== 'water' && viewMode !== 'xyz') return;
+        
+        // Pause auto-rotation for XYZ when interacting
+        if (viewMode === 'xyz') {
+            setIsAutoRotating(false);
+        }
+
         setIsDragging(true);
         lastPos.current = { x: e.clientX, y: e.clientY };
     };
@@ -834,6 +849,22 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                 <canvas ref={canvasRef} className="w-full h-full block" />
                 {viewMode === 'time' && (
                     <div className="absolute top-1/2 left-0 w-full h-px bg-white opacity-10 pointer-events-none"></div>
+                )}
+
+                {/* Resume Rotation Button for XYZ */}
+                {viewMode === 'xyz' && !isAutoRotating && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation(); // Prevent drag start
+                            setIsAutoRotating(true);
+                        }}
+                        className="absolute bottom-4 right-4 bg-gray-800/80 hover:bg-gray-700 text-white p-2 rounded-full backdrop-blur-sm transition-all border border-gray-600 shadow-lg z-20 group"
+                        title="Resume Auto-Rotation"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 group-hover:animate-spin" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                        </svg>
+                    </button>
                 )}
             </div>
             {(viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water' || viewMode === 'xyz') && (

@@ -7,7 +7,7 @@ export const useCanvasAnimation = (
     dependencies: any[] = []
 ) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const requestRef = useRef<number>();
+    const requestRef = useRef<number | undefined>(undefined);
     const startTimeRef = useRef<number>(performance.now());
     const lastTimeRef = useRef<number>(performance.now());
     
