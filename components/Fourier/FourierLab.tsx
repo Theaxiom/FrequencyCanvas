@@ -3,8 +3,13 @@ import { DrawingCanvas } from './DrawingCanvas';
 import { generatePresetWave, computeDFT } from '../../utils/math';
 import { useCanvasAnimation } from '../../hooks/useCanvasAnimation';
 import { RangeSlider } from '../ui/RangeSlider';
+import { Wave, COLORS } from '../../types';
 
-export const FourierLab: React.FC = () => {
+interface FourierLabProps {
+    onExportToLab?: (waves: Wave[]) => void;
+}
+
+export const FourierLab: React.FC<FourierLabProps> = ({ onExportToLab }) => {
     // 200 sample points for the drawing
     const [drawing, setDrawing] = useState<number[]>(new Array(200).fill(0.5));
     const [harmonics, setHarmonics] = useState<number>(5);
@@ -96,6 +101,38 @@ export const FourierLab: React.FC = () => {
         ctx.shadowBlur = 0;
 
     }, [drawing, harmonics, coefficients, showComponents]);
+
+    const handleExport = () => {
+        if (!onExportToLab) return;
+        
+        const wavesToExport: Wave[] = [];
+        // We skip the DC component (k=0) as WaveLab works with AC frequencies > 0
+        const activeCoefficients = coefficients.slice(1, harmonics + 1);
+        
+        // Find max amplitude to normalize visual loudness in Wave Lab
+        // Wave Lab uses 0-100 scale, DFT uses 0-0.5 approx.
+        // We want the strongest harmonic to be around 80% amplitude in Wave Lab.
+        const maxAmp = Math.max(...activeCoefficients.map(c => c.amp));
+        const scaleFactor = maxAmp > 0.001 ? (80 / maxAmp) : 100;
+
+        activeCoefficients.forEach((c, index) => {
+            // Filter out extremely quiet harmonics to reduce clutter
+            if (c.amp * scaleFactor < 1) return;
+
+            wavesToExport.push({
+                id: index + 1,
+                // Wave Lab uses relative frequency. c.freq is integer harmonic index.
+                freq: c.freq,
+                amp: c.amp * scaleFactor,
+                // Convert Radians to Degrees for Wave Lab
+                phase: (c.phase * 180 / Math.PI + 360) % 360,
+                color: COLORS[index % COLORS.length],
+                muted: false
+            });
+        });
+
+        onExportToLab(wavesToExport);
+    };
 
     return (
         <div className="space-y-6 animate-fade-in">
@@ -200,19 +237,33 @@ export const FourierLab: React.FC = () => {
                 </div>
 
                 {/* Slider Control */}
-                <div className="mt-8 p-6 bg-indigo-50 rounded-xl border border-indigo-100">
-                    <RangeSlider
-                        label="Harmonic Complexity (Number of Sine Waves)"
-                        valueDisplay={harmonics}
-                        min={1}
-                        max={50}
-                        step={1}
-                        value={harmonics}
-                        onChange={(e) => setHarmonics(parseInt(e.target.value))}
-                    />
-                    <p className="text-xs text-indigo-600/80 mt-3">
-                        As you increase harmonics, the reconstruction (blue line) better approximates your sharp edges.
-                    </p>
+                <div className="mt-8 p-6 bg-indigo-50 rounded-xl border border-indigo-100 flex flex-col md:flex-row gap-8 items-end">
+                    <div className="flex-1 w-full">
+                        <RangeSlider
+                            label="Harmonic Complexity (Number of Sine Waves)"
+                            valueDisplay={harmonics}
+                            min={1}
+                            max={50}
+                            step={1}
+                            value={harmonics}
+                            onChange={(e) => setHarmonics(parseInt(e.target.value))}
+                        />
+                        <p className="text-xs text-indigo-600/80 mt-3">
+                            As you increase harmonics, the reconstruction (blue line) better approximates your sharp edges.
+                        </p>
+                    </div>
+
+                    <div className="w-full md:w-auto flex-shrink-0">
+                        <button 
+                            onClick={handleExport}
+                            className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg text-sm font-semibold shadow-md transition-all hover:scale-105 active:scale-95"
+                        >
+                            <span>Open in Wave Lab</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

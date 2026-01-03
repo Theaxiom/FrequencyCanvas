@@ -50,6 +50,14 @@ function App() {
     setNextId(n => n + 1);
   };
 
+  const handleImportFromFourier = (newWaves: Wave[]) => {
+      setWaves(newWaves);
+      // Ensure the next ID generator is higher than the max ID we just imported
+      const maxId = newWaves.reduce((max, w) => Math.max(max, w.id), 0);
+      setNextId(maxId + 1);
+      setActiveTab('interference');
+  };
+
   // --- PHYSICS PRESETS ---
   const applyPreset = (type: string) => {
     // Reset ID counter for cleaner look on presets
@@ -438,7 +446,7 @@ function App() {
              </div>
           </div>
         ) : (
-          <FourierLab />
+          <FourierLab onExportToLab={handleImportFromFourier} />
         )}
 
       </main>
