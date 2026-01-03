@@ -262,9 +262,9 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-gray-800 bg-gray-50/50">
+    <div className="flex flex-col min-h-screen font-sans text-gray-800 bg-gray-50/50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-90">
+      <header className="flex-none bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm backdrop-blur-md bg-opacity-90">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
@@ -301,14 +301,19 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="flex-grow w-full max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <main className="flex-1 flex flex-col w-full max-w-5xl mx-auto">
         
         {activeTab === 'interference' ? (
-          <div className="space-y-8 animate-fade-in">
-             <MasterOutput waves={waves} />
-             
-             <div>
-                <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+          <>
+            {/* Visualizer Section (Resizable, Flow layout) */}
+            <div className="flex-none p-4 sm:px-6 pb-2 animate-fade-in z-20">
+                <MasterOutput waves={waves} />
+            </div>
+
+            {/* Scrollable List Section */}
+            {/* max-h-[700px] ensures it scrolls internally if > ~3 rows, but also allows page scroll if visualizer is huge */}
+            <div className="flex-1 overflow-y-auto p-4 sm:px-6 pt-2 animate-fade-in space-y-6 max-h-[700px] border-b border-gray-200/50 mb-2">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4 sticky top-0 bg-gray-50/95 backdrop-blur py-2 z-10 border-b border-gray-200/50 mb-4">
                     <h3 className="text-lg font-bold text-gray-900">Frequency Layers</h3>
                     
                     <div className="flex gap-2 items-center">
@@ -325,7 +330,7 @@ function App() {
                             {/* Dropdown */}
                             {isPresetOpen && (
                                 <div className="absolute right-0 mt-1 w-64 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-20 animate-fade-in max-h-96 overflow-y-auto">
-                                    
+                                    {/* Presets Content Omitted for Brevity - Same as previous */}
                                     {/* WAVE PHYSICS */}
                                     <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50">Wave Physics</div>
                                     <button onClick={() => applyPreset('harmonic_series')} className="block w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-indigo-50 hover:text-indigo-700 border-l-2 border-transparent hover:border-indigo-500">
@@ -431,7 +436,7 @@ function App() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-8">
                     {waves.map((wave) => (
                         <WaveCard 
                             key={wave.id} 
@@ -443,15 +448,18 @@ function App() {
                         />
                     ))}
                 </div>
-             </div>
-          </div>
+            </div>
+          </>
         ) : (
-          <FourierLab onExportToLab={handleImportFromFourier} />
+          <div className="flex-1 overflow-y-auto p-4 sm:px-6">
+             <FourierLab onExportToLab={handleImportFromFourier} />
+          </div>
         )}
 
       </main>
       
-      <footer className="py-6 text-center text-sm text-gray-400 border-t border-gray-200 mt-auto">
+      {/* Footer */}
+      <footer className="flex-none py-6 text-center text-xs text-gray-400 bg-white border-t border-gray-200">
         <p>Mathematical Visualization &copy; {new Date().getFullYear()}</p>
       </footer>
     </div>

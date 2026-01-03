@@ -21,6 +21,10 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         text: 'Initializing...', type: 'normal'
     });
 
+    // Resizing State
+    const [height, setHeight] = useState(500); // Default pixel height
+    const isResizing = useRef(false);
+
     // Speed Control
     const [speed, setSpeed] = useState(1);
     const simTimeRef = useRef(0);
@@ -70,6 +74,34 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             container.removeEventListener('wheel', handleWheelNative);
         };
     }, [viewMode]);
+
+    // Handle Resize Logic
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isResizing.current) return;
+            e.preventDefault();
+            // Constrain height between 300px and 800px (or roughly 80% of viewport)
+            const newHeight = Math.max(300, Math.min(window.innerHeight * 0.8, e.clientY - (containerRef.current?.getBoundingClientRect().top || 0)));
+            setHeight(newHeight);
+        };
+
+        const handleMouseUp = () => {
+            isResizing.current = false;
+            document.body.style.cursor = 'default';
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
+        return () => {
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, []);
+
+    const startResize = (e: React.MouseEvent) => {
+        isResizing.current = true;
+        document.body.style.cursor = 'ns-resize';
+    };
 
     // Helper to check if wave contributes
     const isActive = (w: Wave) => !w.muted && w.amp > 0;
@@ -497,7 +529,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             }
         }
 
-    }, [waves, viewMode, zoom, pan]);
+    }, [waves, viewMode, zoom, pan, height]);
 
     // Status logic
     React.useEffect(() => {
@@ -577,8 +609,8 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     };
 
     return (
-        <div className="bg-gray-900 rounded-xl shadow-xl border border-gray-800 p-4 relative transition-all duration-500">
-            <div className="flex flex-col md:flex-row justify-between items-center mb-3 gap-3">
+        <div className="bg-gray-900 rounded-xl shadow-xl border border-gray-800 p-4 relative transition-all duration-75 flex flex-col pb-6">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-3 gap-3 flex-none">
                 <div className="flex items-center gap-3 w-full md:w-auto">
                     <h2 className="text-white font-semibold text-sm tracking-wide hidden sm:block">
                         {viewMode === 'time' ? 'Time Domain' : viewMode === 'lissajous' ? 'Lissajous (XY)' : viewMode === 'chladni' ? 'Cymatics (2D)' : viewMode === 'water' ? 'Water' : 'Oobleck (3D)'}
@@ -663,12 +695,15 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             
             <div 
                 ref={containerRef}
-                className="relative h-[32rem] md:h-[36rem] w-full bg-gray-950 rounded-lg overflow-hidden ring-1 ring-white/10"
+                className="relative w-full bg-gray-950 rounded-lg overflow-hidden ring-1 ring-white/10"
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
-                style={{ cursor: (viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+                style={{ 
+                    cursor: (viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                    height: `${height}px`
+                }}
             >
                 <canvas ref={canvasRef} className="w-full h-full block" />
                 {viewMode === 'time' && (
@@ -676,7 +711,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                 )}
             </div>
             {(viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') && (
-                <div className="mt-2 text-[10px] text-gray-500 flex justify-between px-1">
+                <div className="mt-2 text-[10px] text-gray-500 flex justify-between px-1 flex-none">
                     <span className="flex items-center gap-2">
                         {viewMode === 'chladni' ? (
                             <>
@@ -702,6 +737,14 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     <span className="font-medium text-amber-600">Scroll to Zoom • Drag to Pan</span>
                 </div>
             )}
+            
+            {/* Resizing Handle */}
+            <div 
+                className="absolute bottom-0 left-0 right-0 h-4 flex items-center justify-center cursor-ns-resize group hover:bg-gray-800/50 transition-colors rounded-b-xl"
+                onMouseDown={startResize}
+            >
+                <div className="w-12 h-1 rounded-full bg-gray-700 group-hover:bg-gray-500 transition-colors"></div>
+            </div>
         </div>
     );
 };
