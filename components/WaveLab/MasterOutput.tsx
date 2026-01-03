@@ -7,7 +7,7 @@ interface MasterOutputProps {
     waves: Wave[];
 }
 
-type ViewMode = 'time' | 'lissajous' | 'chladni' | 'fluid' | 'water';
+type ViewMode = 'time' | 'lissajous' | 'xyz' | 'chladni' | 'fluid' | 'water';
 
 interface ViewState {
     zoom: number;
@@ -33,6 +33,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     const [viewSettings, setViewSettings] = useState<Record<ViewMode, ViewState>>({
         time: { zoom: 1, pan: { x: 0, y: 0 } },
         lissajous: { zoom: 1, pan: { x: 0, y: 0 } },
+        xyz: { zoom: 0.8, pan: { x: 0, y: 0 } },
         chladni: { zoom: 0.6, pan: { x: 0, y: 0 } },
         fluid: { zoom: 0.6, pan: { x: 0, y: 0 } },
         water: { zoom: 1, pan: { x: 0, y: 0 } }
@@ -52,7 +53,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         if (!container) return;
 
         const handleWheelNative = (e: WheelEvent) => {
-            if (viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') {
+            if (viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water' || viewMode === 'xyz') {
                 e.preventDefault();
                 const delta = -e.deltaY * 0.001;
                 
@@ -117,10 +118,10 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
         // Clear canvas
         if (viewMode !== 'chladni' && viewMode !== 'water') {
-             // For fluid mode, we might want a darker clear or gradient
-            ctx.fillStyle = viewMode === 'fluid' ? '#0b0f19' : '#00000000'; // Dark bg for fluid, transparent for others
+             // For fluid/xyz mode, we might want a darker clear or gradient
+            ctx.fillStyle = (viewMode === 'fluid' || viewMode === 'xyz') ? '#0b0f19' : '#00000000'; 
             ctx.fillRect(0, 0, width, height);
-            if (viewMode !== 'fluid') ctx.clearRect(0, 0, width, height);
+            if (viewMode !== 'fluid' && viewMode !== 'xyz') ctx.clearRect(0, 0, width, height);
         }
 
         // --- TIME DOMAIN ---
@@ -168,7 +169,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             ctx.shadowBlur = 0;
         } 
         
-        // --- LISSAJOUS DOMAIN ---
+        // --- LISSAJOUS DOMAIN (2D) ---
         else if (viewMode === 'lissajous') {
             // Axes
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
@@ -226,6 +227,122 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
                 if (i === 0) ctx.moveTo(plotX, plotY);
                 else ctx.lineTo(plotX, plotY);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+        }
+
+        // --- 3D LISSAJOUS (XYZ) ---
+        else if (viewMode === 'xyz') {
+            // We need 3 dimensions. If fewer than 3 waves, we use 0 for missing dimensions.
+            const wX = activeWaves[0];
+            const wY = activeWaves[1];
+            const wZ = activeWaves[2];
+
+            // Camera Setup
+            const cameraZ = 1200 / Math.max(0.1, zoom);
+            const scale = Math.min(width, height) * 0.4;
+            
+            // Rotation controlled by mouse pan + auto rotate
+            const rotX = (pan.y * 0.01) + 0.5;
+            const rotY = (pan.x * 0.01) + (time * 0.2);
+
+            // Draw 3D Bounding Box (Reference Cube)
+            const boxSize = scale * 1.2;
+            const boxPoints = [
+                {x:-1,y:-1,z:-1}, {x:1,y:-1,z:-1}, {x:1,y:1,z:-1}, {x:-1,y:1,z:-1}, // Back Face
+                {x:-1,y:-1,z:1}, {x:1,y:-1,z:1}, {x:1,y:1,z:1}, {x:-1,y:1,z:1}      // Front Face
+            ];
+
+            const project = (x: number, y: number, z: number) => {
+                 // Rotate Y
+                 let rx = x * Math.cos(rotY) - z * Math.sin(rotY);
+                 let rz = x * Math.sin(rotY) + z * Math.cos(rotY);
+                 // Rotate X
+                 let ry = y * Math.cos(rotX) - rz * Math.sin(rotX);
+                 rz = y * Math.sin(rotX) + rz * Math.cos(rotX);
+
+                 const depth = rz + cameraZ;
+                 if (depth < 10) return null; // Clip
+                 const screenX = cx + (rx / depth) * 1000; // 1000 is generic fov factor
+                 const screenY = cy + (ry / depth) * 1000;
+                 return { x: screenX, y: screenY };
+            };
+
+            // Draw Box Edges
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            const edges = [
+                [0,1], [1,2], [2,3], [3,0], // Back
+                [4,5], [5,6], [6,7], [7,4], // Front
+                [0,4], [1,5], [2,6], [3,7]  // Connectors
+            ];
+            
+            ctx.beginPath();
+            edges.forEach(([s, e]) => {
+                const start = boxPoints[s];
+                const end = boxPoints[e];
+                const p1 = project(start.x * boxSize, start.y * boxSize, start.z * boxSize);
+                const p2 = project(end.x * boxSize, end.y * boxSize, end.z * boxSize);
+                if (p1 && p2) {
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                }
+            });
+            ctx.stroke();
+
+
+            // Draw The Knot
+            ctx.lineWidth = 4;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            // Neon Gradient
+            const gradient = ctx.createLinearGradient(0, 0, width, height);
+            gradient.addColorStop(0, '#6366f1'); // Indigo
+            gradient.addColorStop(0.5, '#ec4899'); // Pink
+            gradient.addColorStop(1, '#8b5cf6'); // Violet
+            ctx.strokeStyle = gradient;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ec4899';
+
+            ctx.beginPath();
+            const points = 800;
+            // Longer history for knot to show full shape
+            // Calculate Greatest Common Divisor-ish period (simplified) or just draw enough cycles
+            const cycles = 4; 
+            
+            for (let i = 0; i < points; i++) {
+                // Parameter t running through the cycles
+                const tOffset = (i / points) * (Math.PI * 2 * cycles); 
+                // Add current time for animation flow
+                const t = tOffset + (time * 0.5); 
+
+                // X Axis
+                let x = 0;
+                if (wX) {
+                    const phase = (wX.phase * Math.PI) / 180;
+                    x = Math.sin(wX.freq * t * 0.2 + phase); // Scale freq down slightly for smoother viewing
+                }
+
+                // Y Axis
+                let y = 0;
+                if (wY) {
+                    const phase = (wY.phase * Math.PI) / 180;
+                    y = Math.sin(wY.freq * t * 0.2 + phase);
+                }
+
+                // Z Axis
+                let z = 0;
+                if (wZ) {
+                    const phase = (wZ.phase * Math.PI) / 180;
+                    z = Math.sin(wZ.freq * t * 0.2 + phase);
+                }
+
+                const p = project(x * scale, y * scale, z * scale);
+                if (p) {
+                    if (i === 0) ctx.moveTo(p.x, p.y);
+                    else ctx.lineTo(p.x, p.y);
+                }
             }
             ctx.stroke();
             ctx.shadowBlur = 0;
@@ -561,6 +678,9 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
         if (viewMode === 'lissajous') {
              if (activeWaves.length < 2) setStatus({ text: 'Lissajous needs 2+ layers', type: 'normal' });
              else setStatus({ text: 'XY Phase Plot', type: 'normal' });
+        } else if (viewMode === 'xyz') {
+             if (activeWaves.length < 3) setStatus({ text: 'XYZ needs 3 layers (X, Y, Z)', type: 'normal' });
+             else setStatus({ text: 'XYZ 3D Lissajous Knot', type: 'normal' });
         } else if (viewMode === 'chladni') {
              setStatus({ text: `Rigid Plate Mode (Zoom: ${zoom.toFixed(1)}x)`, type: 'normal' });
         } else if (viewMode === 'fluid') {
@@ -581,13 +701,13 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
 
     // Interaction Handlers (Mouse Drag only)
     const handleMouseDown = (e: React.MouseEvent) => {
-        if (viewMode !== 'chladni' && viewMode !== 'fluid' && viewMode !== 'water') return;
+        if (viewMode !== 'chladni' && viewMode !== 'fluid' && viewMode !== 'water' && viewMode !== 'xyz') return;
         setIsDragging(true);
         lastPos.current = { x: e.clientX, y: e.clientY };
     };
 
     const handleMouseMove = (e: React.MouseEvent) => {
-        if (!isDragging || (viewMode !== 'chladni' && viewMode !== 'fluid' && viewMode !== 'water')) return;
+        if (!isDragging || (viewMode !== 'chladni' && viewMode !== 'fluid' && viewMode !== 'water' && viewMode !== 'xyz')) return;
         const dx = e.clientX - lastPos.current.x;
         const dy = e.clientY - lastPos.current.y;
         lastPos.current = { x: e.clientX, y: e.clientY };
@@ -613,7 +733,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
             <div className="flex flex-col md:flex-row justify-between items-center mb-3 gap-3 flex-none">
                 <div className="flex items-center gap-3 w-full md:w-auto">
                     <h2 className="text-white font-semibold text-sm tracking-wide hidden sm:block">
-                        {viewMode === 'time' ? 'Time Domain' : viewMode === 'lissajous' ? 'Lissajous (XY)' : viewMode === 'chladni' ? 'Cymatics (2D)' : viewMode === 'water' ? 'Water' : 'Oobleck (3D)'}
+                        {viewMode === 'time' ? 'Time Domain' : viewMode === 'lissajous' ? 'Lissajous (XY)' : viewMode === 'xyz' ? 'Lissajous (XYZ)' : viewMode === 'chladni' ? 'Cymatics (2D)' : viewMode === 'water' ? 'Water' : 'Oobleck (3D)'}
                     </h2>
                     <div className="flex bg-gray-800 rounded-lg p-0.5 w-full sm:w-auto justify-center overflow-x-auto no-scrollbar">
                         <button 
@@ -627,6 +747,12 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                             className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all whitespace-nowrap ${viewMode === 'lissajous' ? 'bg-pink-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
                         >
                             XY
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('xyz')}
+                            className={`flex-1 sm:flex-none px-3 py-1 text-[10px] font-bold uppercase rounded-md transition-all whitespace-nowrap ${viewMode === 'xyz' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            XYZ
                         </button>
                         <button 
                             onClick={() => setViewMode('chladni')}
@@ -701,7 +827,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
                 style={{ 
-                    cursor: (viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                    cursor: (viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water' || viewMode === 'xyz') ? (isDragging ? 'grabbing' : 'grab') : 'default',
                     height: `${height}px`
                 }}
             >
@@ -710,7 +836,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                     <div className="absolute top-1/2 left-0 w-full h-px bg-white opacity-10 pointer-events-none"></div>
                 )}
             </div>
-            {(viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water') && (
+            {(viewMode === 'chladni' || viewMode === 'fluid' || viewMode === 'water' || viewMode === 'xyz') && (
                 <div className="mt-2 text-[10px] text-gray-500 flex justify-between px-1 flex-none">
                     <span className="flex items-center gap-2">
                         {viewMode === 'chladni' ? (
@@ -727,6 +853,10 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
                         ) : viewMode === 'water' ? (
                             <span className="italic text-blue-400/70">
                                 2D Ripple Tank
+                            </span>
+                        ) : viewMode === 'xyz' ? (
+                            <span className="italic text-purple-500/70">
+                                3D Lissajous Phase Plot
                             </span>
                         ) : (
                             <span className="italic text-cyan-600/70">
