@@ -29,8 +29,8 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     const [viewSettings, setViewSettings] = useState<Record<ViewMode, ViewState>>({
         time: { zoom: 1, pan: { x: 0, y: 0 } },
         lissajous: { zoom: 1, pan: { x: 0, y: 0 } },
-        chladni: { zoom: 1, pan: { x: 0, y: 0 } },
-        fluid: { zoom: 1, pan: { x: 0, y: 0 } },
+        chladni: { zoom: 0.6, pan: { x: 0, y: 0 } },
+        fluid: { zoom: 0.6, pan: { x: 0, y: 0 } },
         water: { zoom: 1, pan: { x: 0, y: 0 } }
     });
 
@@ -577,7 +577,7 @@ export const MasterOutput: React.FC<MasterOutputProps> = ({ waves }) => {
     };
 
     return (
-        <div className="bg-gray-900 rounded-xl shadow-xl border border-gray-800 p-4 sticky top-4 z-20 backdrop-blur-sm bg-opacity-95 transition-all duration-500">
+        <div className="bg-gray-900 rounded-xl shadow-xl border border-gray-800 p-4 relative transition-all duration-500">
             <div className="flex flex-col md:flex-row justify-between items-center mb-3 gap-3">
                 <div className="flex items-center gap-3 w-full md:w-auto">
                     <h2 className="text-white font-semibold text-sm tracking-wide hidden sm:block">
